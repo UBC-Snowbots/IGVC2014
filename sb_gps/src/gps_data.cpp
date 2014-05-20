@@ -35,6 +35,9 @@ int main(int argc, char **argv)
 	ros::init(argc, argv, GPS_NODE_NAME); // start node
 	ros::NodeHandle nh; // main access point to communication with ROS system. First one initializes node.
 	ros::Publisher gps_data_pub = nh.advertise<SOME SB_GPS_MSG>(GPS_OUTPUT_TOPIC, 1000); // publisher for output
+	ros::Subscriber position_sub = nh.subscribe(GPS_POSITION_TOPIC, 1000, positionCallback);
+	ros::Subscriber timestamp_sub = nh.subscribe(GPS_TIMESTAMP_TOPIC, 1000, timeStampCallback);
+	ros::Subscriber timeread_sub = nh.subscribe(GPS_TIMEREAD_TOPIC, 1000, timeReadCallback);
 	ros::Rate loop_rate(10); // 10hz loop rate
   
 	int count = 0;
