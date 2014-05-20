@@ -1,0 +1,17 @@
+<package>
+  <description brief="sb_gps">
+
+     sb_gps
+
+  </description>
+  <author>Jennifer Ling (jechli)</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/sb_gps</url>
+  <depend package="std_msgs"/>
+  <depend package="rospy"/>
+  <depend package="roscpp"/>
+
+</package>
+
+
