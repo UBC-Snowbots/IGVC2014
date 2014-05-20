@@ -19,8 +19,8 @@ double lat, lon;
 // for subscribers
 void positionCallback(const sensor_msgs::NavSatFix::ConstPtr& msg)
 {
-	lat = msg->latitude; // float64
-	lon = msg->longitude; // float64
+	lat = msg->latitude // float64
+	lon = msg->longitude // float64
 	//msg->status
 	//msg->altitude // float64
 	// msg->covariance?
