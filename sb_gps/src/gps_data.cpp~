@@ -3,6 +3,7 @@
 #include <geometry_msgs/TwistStamped.h> // vel
 #include <sensor_msgs/TimeReference.h>
 #include <std_msgs/String.h>
+#include <std_msgs/Vector3.h> // is this right?
 #include <sstream>
 #include <iostream>
 #include <string>
@@ -13,14 +14,14 @@ static const string GPS_POSITION_TOPIC = "fix"; // gps: sub
 static const string GPS_TIMESTAMP_TOPIC = "time_reference"; // timestamp of original gps reading: sub
 static const string GPS_VELOCITY_TOPIC = "vel"; // velocity reading by gps 
 static const string GPS_OUTPUT_TOPIC = "sb_gps_output"; // this node's output: pub
-double lat, lon;
+double lat, lon, goal_lat, goal_lon;
 
 
 // for subscribers
 void positionCallback(const sensor_msgs::NavSatFix::ConstPtr& msg)
 {
-	lat = msg->latitude // float64
-	lon = msg->longitude // float64
+	lat = msg->latitude; // float64
+	lon = msg->longitude; // float64
 	//msg->status
 	//msg->altitude // float64
 	// msg->covariance?

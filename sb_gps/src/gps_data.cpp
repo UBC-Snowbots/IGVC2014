@@ -3,6 +3,7 @@
 #include <geometry_msgs/TwistStamped.h> // vel
 #include <sensor_msgs/TimeReference.h>
 #include <std_msgs/String.h>
+#include <std_msgs/Vector3.h> // is this right?
 #include <sstream>
 #include <iostream>
 #include <string>
@@ -13,7 +14,7 @@ static const string GPS_POSITION_TOPIC = "fix"; // gps: sub
 static const string GPS_TIMESTAMP_TOPIC = "time_reference"; // timestamp of original gps reading: sub
 static const string GPS_VELOCITY_TOPIC = "vel"; // velocity reading by gps 
 static const string GPS_OUTPUT_TOPIC = "sb_gps_output"; // this node's output: pub
-double lat, lon;
+double lat, lon, goal_lat, goal_lon, dist, x_dist, y_dist;
 
 
 // for subscribers
@@ -35,6 +36,13 @@ void velocityCallback(const geometry_msgs::TwistStamped::ConstPtr& msg)
 {
 	//msg->twist->linear // vector3
 	//msg->twist->angular // vector3
+}
+
+void calculateDistance(const double x, const double y, const double goal_x, const double goal_y)
+{
+	x_dist = goal_x - x;
+	y_dist = goal_y - y;
+	dist = sqrt(pow(x_dist, 2.0) + pow(y_dist, 2.0));
 }
 
 int main(int argc, char **argv) 
