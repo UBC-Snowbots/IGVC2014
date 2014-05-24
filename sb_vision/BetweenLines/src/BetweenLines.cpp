@@ -11,24 +11,31 @@
 #include "opencv2/opencv.hpp"
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
+#include <opencv2/calib3d/calib3d.hpp>
+#include <vector>
 
 using namespace cv;
 using namespace std;
 
 void detectLines(void);
 void findcentre(int);
+int findcentre1(int);
 int findcentre2(int);
 void drawLine(int);
 int countLines(int);
+void birdseye(void);
 
-Mat image, image_grey, image_filter, image_thresholded, image_canny;
+Mat image, image_grey, image_filter, image_thresholded, image_canny, image_birdseye;
 int const threshold_value = 160;
 int blur_value = 7;
 int const max_BINARY_value = 255;
 int direction[3]; // x,y,z using right handed co-ordinate system, + z rotate counter clockwise
 //TODO: publish message
 //TODO: currently there is a lot of overlap between functions, can speed up code by getting rid of the overlap & also using pointers
+
 int main(int argc, char** argv) {
+	cout<<"running"<<endl;
+	//birdseye();
 	VideoCapture cap("sample-course.avi");
 	namedWindow("Display Image", CV_WINDOW_NORMAL);
 
@@ -63,6 +70,9 @@ int main(int argc, char** argv) {
 	//Canny Edge detection
 	Canny(image_thresholded, image_canny, 50, 200, 3);
 
+	// Get bird's eye transform
+
+
 	// Detect lines
 	detectLines();
 
@@ -82,6 +92,10 @@ int main(int argc, char** argv) {
 	namedWindow("Canny", CV_WINDOW_NORMAL);
 	imshow("Canny", image_canny);
 
+	//Display Bird's eye view image
+	//namedWindow("Bird's Eye", CV_WINDOW_NORMAL);
+	//imshow("Bird's Eye", image_birdseye);
+	waitKey(0);
 	// Wait for one ms, break if escape is pressed
 	if(waitKey(1) == 27) break;
 	}
@@ -105,10 +119,18 @@ void detectLines(void) {
 	drawLine(row);
 	//findcentre(row);
 	numLines = countLines(row); // how many lanes are detected
+	if(numLines == 0)cout<<"Error: No lines visible"<<endl;//direction will stay as before
+	if(numLines >= 3)cout<<"Error: Noise, more than 3 lines detected"<<endl;//direction will stay as before
 	if (numLines == 2)
 		{
 		x = findcentre2(row); // if we detect two lines find the middle of the lane
 		y = row;
+		}
+	if (numLines == 1)
+			{
+			x = findcentre1(row); // if we detect one lines find the middle of the lane
+			y = row;
+			}
 	if(i == 0)
 	{
 		dx = x;
@@ -120,7 +142,7 @@ void detectLines(void) {
 		dy =  dy-y;
 		cout<<"Rise/Run: "<<dy<<"/"<<dx<<endl;
 	}
-	}
+
 	row = row - betweenRow;
 	}
 }
@@ -164,6 +186,41 @@ void findcentre(int row) {
 	circle(image_canny, centre, 10, CV_RGB(250, 100, 255), 1, 8, 0);
 }
 
+//Improved version of find direction when exactly 1 lane has been detected
+int findcentre1(int row) {
+	int Mit;
+	int countWhite = 0;
+	int centreWhite1 = 0;
+	int centreLane;
+	int transition = 0;
+	int lastValue = (image_thresholded.at<uchar>(row, 0)) % 2;
+	for (int i=0; i<image_thresholded.cols; i++)
+	{
+		Mit = (image_thresholded.at<uchar>(row, i)) % 2; // had problems with data type of binary image. Modulo works to get either 1 or 0
+		if (lastValue != Mit)
+		{
+			if (transition == 0 ) countWhite = i;
+			else if (transition == 1 ) {
+				centreWhite1 = (countWhite + i)/2;
+				cout<<"centreWhite1: "<<centreWhite1<<endl;
+				countWhite = 0;
+			}
+			transition++;
+		}
+		lastValue = Mit;
+	}
+	if(centreWhite1>=image_thresholded.cols/2) centreLane = (centreWhite1)/2;
+	if(centreWhite1<image_thresholded.cols/2) centreLane = (centreWhite1+image_thresholded.cols)/2;
+    cout<<"CentreLane:"<<centreLane<<endl;
+	//Put large dot in average of white lines
+	Point centre;
+	centre.x = centreLane;
+	centre.y = row;
+	circle(image_canny, centre, 20, CV_RGB(250, 100, 255), 1, 8, 0);
+	return centreLane;
+}
+
+
 //Improved version of find centre when exactly 2 lanes have been detected
 int findcentre2(int row) {
 	int Mit;
@@ -179,16 +236,21 @@ int findcentre2(int row) {
 		if (lastValue != Mit)
 		{
 
-			if (transition == 0 ) countWhite = i;
+			if (transition == 0 )
+				{countWhite = i;
+				centreWhite1 = countWhite;
+				}
+
 			else if (transition == 1 ) {
 				centreWhite1 = (countWhite + i)/2;
-				cout<<"centreWhite1: "<<centreWhite1<<endl;
 				countWhite = 0;
 			}
-			else if (transition == 2 ) countWhite = i;
+			else if (transition == 2 )
+				{countWhite = i;
+				 centreWhite2 = countWhite;
+				}
 			else if (transition == 3 ) {
 				centreWhite2 = (countWhite + i)/2;
-				cout<<"centreWhite2: "<<centreWhite2<<endl;
 				countWhite = 0;
 			}
 			transition++;
@@ -196,6 +258,8 @@ int findcentre2(int row) {
 		lastValue = Mit;
 	}
     centreLane = (centreWhite1 + centreWhite2)/2;
+    cout<<"centreWhite1: "<<centreWhite1<<endl;
+    cout<<"centreWhite2: "<<centreWhite2<<endl;
     cout<<"CentreLane:"<<centreLane<<endl;
 	//Put large dot in average of white lines
 	Point centre;
@@ -204,6 +268,7 @@ int findcentre2(int row) {
 	circle(image_canny, centre, 20, CV_RGB(250, 100, 255), 1, 8, 0);
 	return centreLane;
 }
+
 // Counts the number of lines seen across the image
 int countLines(int row){
 	int Mit;
@@ -222,5 +287,71 @@ int countLines(int row){
 	cout<<"Number of Lines: "<<lineCount<<endl;
 	return lineCount;
 }
+
+// TODO:performs bird's eye transform for the robot.. maybe not needed
+void birdseye(void)
+{
+  cout<<"running bird's eye"<<endl;
+  int board_w = 30;
+  int board_h = 30;
+
+  Size board_sz( board_w, board_h );
+  Mat image_chess = imread( "chess.jpg" ) ;
+  cout<<"read chess"<<endl;
+  namedWindow("chess", CV_WINDOW_NORMAL);
+  imshow( "chess", image_chess ) ;
+  waitKey(10);
+  Mat gray_image, tmp, H , birds_image;
+  Point2f objPts[4], imgPts[4] ;
+  vector <Point2f> corners ;
+  float Z = 1 ; //have experimented from values as low as .1 and as high as 100
+  int key = 0 ;
+  int found = findChessboardCorners( image_chess, board_sz, corners ) ;
+  cout <<found<<endl;
+  if (found) {
+    drawChessboardCorners(image_chess, board_sz, corners, 1) ;
+    cvtColor( image_chess, gray_image, CV_RGB2GRAY ) ;
+    cornerSubPix( gray_image, corners, Size(11, 11), Size(-1, -1),
+                  TermCriteria(CV_TERMCRIT_EPS | CV_TERMCRIT_ITER, 30, 0.1) ) ;
+    resize( image_chess, tmp, Size(), .5, .5 ) ;
+    namedWindow( "IMAGE" ) ;
+    imshow( "IMAGE" , tmp ) ;
+    waitKey(0) ;
+  }
+
+ // std::vector<cv::Point2f> objPts(4) ;
+  objPts[0].x = 250 ;
+  objPts[0].y = 250 ;
+  objPts[1].x = 250 + (board_w-1) * 25 ;
+  objPts[1].y = 250 ;
+  objPts[2].x = 250 ;
+  objPts[2].y = 250 + (board_h-1) * 25 ;
+  objPts[3].x = 250 + (board_w-1) * 25 ;
+  objPts[3].y = 250 + (board_h-1) * 25 ;
+
+
+  imgPts[0] = corners.at(0) ;
+  imgPts[1] = corners.at(board_w-1) ;
+  imgPts[2] = corners.at((board_h-1) * board_w) ;
+  imgPts[3] = corners.at((board_h-1) * board_w + board_w-1) ;
+
+  H = getPerspectiveTransform( objPts, imgPts ) ;
+
+  birds_image = image_chess ;
+
+  while ( key != 27 ) {
+
+    H.at<float>(2,2) = Z ;
+
+   warpPerspective( image, birds_image, H, Size( 2 * image.cols, 2 * tmp.rows ) ,
+                         CV_INTER_LINEAR | CV_WARP_INVERSE_MAP | CV_WARP_FILL_OUTLIERS ) ;
+
+    imshow( "IMAGE", birds_image ) ;
+
+  }
+
+}
+
+//TODO: matrisize function on
 
 
