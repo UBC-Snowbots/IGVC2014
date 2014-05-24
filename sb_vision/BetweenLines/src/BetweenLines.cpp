@@ -29,12 +29,14 @@ int countLines(int);
 void birdseye(void);
 void dump(const Mat&, const char* );
 Mat showHistogram(const Mat&);
+Mat showHistogram2(const Mat &inImage);
+Mat showHistogram3(const Mat &inImage);
+void showHSVHistograms(Mat);
 
 
-Mat image, image_grey, image_filter, image_thresholded, image_canny,
-		image_birdseye, image_blur,image_equal;
-int const threshold_value = 160;
-int blur_value = 21;
+Mat image, image_grey, image_filter, image_thresholded, image_canny,image_birdseye, image_blur,image_equal;
+int const threshold_value = 180;
+int blur_value = 2;
 int const max_BINARY_value = 255;
 int direction[3]; // x,y,z using right handed co-ordinate system, + z rotate counter clockwise
 //TODO: publish message
@@ -53,21 +55,22 @@ int main(int argc, char** argv) {
 		//if (!cap.isOpened()) // check if we succeeded
 		//	return -1;
 
-		//cap >> image;
+		cap >> image;
 
 		//Read image
-		image = imread(argv[1], 1);
+		//image = imread("sample.jpg");
 
 		//Stop if no image data
 		if (argc != 2 || !image.data) {
 			printf("No image data \n");
 			return -1;
 		}
-		GaussianBlur(image, image_blur,Size(5,5),0,0);
 
 		if (blur_value % 2 == 0) {
 					blur_value = blur_value + 1;
 				}
+		medianBlur(image, image_blur, blur_value);
+		namedWindow("Blur", CV_WINDOW_NORMAL);
 		imshow("Blur",image_blur);
 
 
@@ -75,16 +78,13 @@ int main(int argc, char** argv) {
 		Mat histgram = showHistogram(image_blur);
 	    imshow("Histogram", histgram);
 
+	    showHSVHistograms(image_blur);
+
 
 		//Create image_gray, gray_scaled version of image (needed for canny filter)
 		cvtColor(image_blur, image_grey, CV_RGB2GRAY);
 
-		equalizeHist(image_grey, image_equal);
-		imshow("Equal",image_equal);
-		cvtColor(image_equal, image_equal, CV_GRAY2RGB);
 
-		Mat histogram = showHistogram(image_equal);
-	    imshow("Histogram2", histogram);
 		//Blur the image
 		//if (blur_value % 2 == 0) {
 		//	blur_value = blur_value + 1;
@@ -93,11 +93,11 @@ int main(int argc, char** argv) {
 		image_filter = image_grey;
 		//Threshold the image
 		// Regular threshold
-			//threshold(image_filter, image_thresholded, threshold_value,max_BINARY_value, THRESH_BINARY);
+		threshold(image_filter, image_thresholded, threshold_value,max_BINARY_value, THRESH_BINARY);
 		//Adaptive threshold
 			//adaptiveThreshold(image_filter, image_thresholded,255, CV_ADAPTIVE_THRESH_GAUSSIAN_C, CV_THRESH_BINARY,71, 15);
 		//Otsu threshold
-		threshold(image_filter, image_thresholded, threshold_value, 255 , THRESH_OTSU  );
+		//threshold(image_filter, image_thresholded, threshold_value, 255 , THRESH_OTSU|THRESH_BINARY  );
 
 		//Canny Edge detection
 		Canny(image_thresholded, image_canny, 50, 200, 3);
@@ -429,7 +429,6 @@ cv::Mat showHistogram(const cv::Mat &inImage){
                 cv::Scalar::all(0));
         barPosition++;
     }
-
     return histImg;
 }
 
@@ -468,4 +467,135 @@ void dump(const Mat &mat, const char* fname)
 }
 
 
+void showHSVHistograms(Mat image)
+{
+	Mat image_histo,H,S,V;
+	vector<Mat> channels;
 
+	//cvtColor(image, image_histo, COLOR_RGB2HSV);
+	image_histo = image;
+	split(image_histo, channels);
+
+	// And then if you like
+	Mat imageH = channels[0];
+	Mat imageS = channels[1];
+	Mat imageV = channels[2];
+
+	imshow("Histo",image_histo);
+	imshow("H",imageH);
+	imshow("S",imageS);
+	imshow("V",imageV);
+
+	// Show histogram of image
+
+	Mat hgram = showHistogram2(imageH);
+	imshow("Hhist", hgram);
+	threshold(imageH, H, 0, 255 , THRESH_OTSU|THRESH_BINARY_INV);
+	imshow("Otsu H", H);
+	Mat sgram = showHistogram3(imageS);
+	imshow("Shist", sgram);
+	threshold(imageS, S, 0, 255 , THRESH_OTSU|THRESH_BINARY_INV);
+    imshow("Otsu S", S);
+	Mat vgram = showHistogram3(imageV);
+	imshow("Vhist", vgram);
+	threshold(imageV, V, 0, 255 , THRESH_OTSU|THRESH_BINARY_INV);
+	imshow("Otsu V", V);
+}
+
+cv::Mat showHistogram2(const cv::Mat &inImage){
+
+    cv::MatND hist;
+    // For a gray scale [0:255] we have 256 bins
+    const int bins[1] = {180};
+    const float hranges[2] = {0.0, 180.0};
+    const float* ranges[1] = { hranges };
+    const int channels[1] = {0};
+
+    cv::calcHist(&inImage,
+            1,             // histogram from 1 image only
+            channels,
+            cv::Mat(),     // no mask is used
+            hist,            // the output histogram
+            1,             // 1D histogram
+            bins,
+            ranges         // pixel value ranges
+    );
+
+    // Get min and max bin values
+    double maxVal=0;
+    double minVal=0;
+    cv::minMaxLoc(hist, &minVal, &maxVal, 0, 0);
+    // The image to display the histogram
+    cv::Mat histImg(bins[0], bins[0], CV_8U, cv::Scalar(180));
+
+    // Map the highest point to 95% of the histogram height to leave some
+    // empty space at the top
+    const int histHeight = bins[0];
+    const int maxHeight = 0.95 * histHeight;
+
+    cv::Mat_<float>::iterator it    = hist.begin<float>();
+    cv::Mat_<float>::iterator itend = hist.end<float>();
+
+    int barPosition = 0;
+    for ( ; it != itend; ++it) {
+        float histValue = (*it);
+        int barHeight = ( histValue * maxHeight ) / maxVal;
+        cv::line(histImg,
+                // start the line from the bottom, and go up based on the barHeight
+                // Remember the (0,0) is the top left corner
+                cv::Point(barPosition, histHeight),
+                cv::Point(barPosition, histHeight - barHeight),
+                cv::Scalar::all(0));
+        barPosition++;
+    }
+    return histImg;
+}
+
+cv::Mat showHistogram3(const cv::Mat &inImage){
+
+    cv::MatND hist;
+    // For a gray scale [0:255] we have 256 bins
+    const int bins[1] = {256};
+    const float hranges[2] = {0.0, 255.0};
+    const float* ranges[1] = { hranges };
+    const int channels[1] = {0};
+
+    cv::calcHist(&inImage,
+            1,             // histogram from 1 image only
+            channels,
+            cv::Mat(),     // no mask is used
+            hist,            // the output histogram
+            1,             // 1D histogram
+            bins,
+            ranges         // pixel value ranges
+    );
+
+    // Get min and max bin values
+    double maxVal=0;
+    double minVal=0;
+    cv::minMaxLoc(hist, &minVal, &maxVal, 0, 0);
+    // The image to display the histogram
+    cv::Mat histImg(bins[0], bins[0], CV_8U, cv::Scalar(255));
+
+    // Map the highest point to 95% of the histogram height to leave some
+    // empty space at the top
+    const int histHeight = bins[0];
+    const int maxHeight = 0.95 * histHeight;
+
+    cv::Mat_<float>::iterator it    = hist.begin<float>();
+    cv::Mat_<float>::iterator itend = hist.end<float>();
+
+    int barPosition = 0;
+    for ( ; it != itend; ++it) {
+        float histValue = (*it);
+        int barHeight = ( histValue * maxHeight ) / maxVal;
+        cv::line(histImg,
+                // start the line from the bottom, and go up based on the barHeight
+                // Remember the (0,0) is the top left corner
+                cv::Point(barPosition, histHeight),
+                cv::Point(barPosition, histHeight - barHeight),
+                cv::Scalar::all(0));
+        barPosition++;
+    }
+    return histImg;
+}
