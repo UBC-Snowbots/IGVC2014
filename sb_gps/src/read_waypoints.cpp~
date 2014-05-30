@@ -1,40 +1,52 @@
 #include <iostream>
 #include <fstream>
+#include <string>
+#include <stdio.h>
 #include <stdlib.h>
 #include "read_waypoints.h"
 
 using namespace std;
 
-
-// Output: lat/long structure
-struct waypoint* ReturnWaypoints()
+double* ReturnWaypoints() 
 {
-	struct waypoint* points_array = NULL;
 	string output;
 	int count = 0;
+	int array_size;
+	double* waypoints_array;
 	ifstream waypoints_file ("waypoints.txt");
-
 	if (waypoints_file.is_open())
 	{
-	  while (getline(waypoints_file, output))
-	  {
-	    struct waypoint* insert;
-	    int index = output.find(","); // delimiter for lat,long
-	    const char* y = (output.substr(0,index-1)).c_str(); 
-	    const char* x = (output.substr(index+1)).c_str(); 
-	    insert->long_x = atof(x);
-	    insert->lat_y = atof(y);
-	    (points_array+count) = insert;
-	    count++;
-	  }
-	  waypoints_file.close();
+		while (getline(waypoints_file, output))
+		{
+			if (count == 0) {
+				array_size = atoi(output.c_str())*2;
+				waypoints_array = new double [array_size];
+				//cout << array_size << "\n";
+				count++;
+			}
+			
+			else { 
+				waypoints_array[count-1] = atof(output.c_str());
+				count++;
+				//cout << waypoints_array[count-1] << "\n"; 
+			}
+		}
+		waypoints_file.close();
 	}
 
-	else 
+	else
 	{
-	  cout << "Unable to open file";
-
+		cout << "Unable to open file";
 	}
-	return points_array;
+
+	return waypoints_array;
 }
 
+int main() {
+	double* x = ReturnWaypoints();
+	int size = sizeof(x);
+	int i = 0;
+	cout << size << "\n";
+	while ( i < size ) { cout << x[i] << "\n"; i++; }
+	return 0;
+}
