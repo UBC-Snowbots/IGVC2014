@@ -1,5 +1,17 @@
-#include <stdlib.h>
+#include <ros/ros.h>
+#include <sensor_msgs/TimeReference.h>
+#include <std_msgs/String.h>
+#include <sstream>
+#include <iostream>
+#include <string>
+#include <math.h>
 
 #pragma once
 
-double[] ReturnWaypoints();
+struct waypoint 
+{
+	double long_x;
+	double lat_y;
+};
+
+double* ReturnWaypoints();

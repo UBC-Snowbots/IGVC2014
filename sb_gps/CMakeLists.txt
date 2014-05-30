@@ -30,3 +30,4 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 #target_link_libraries(example ${PROJECT_NAME})
 
 rosbuild_add_executable(gps_node src/gps_data.cpp)
+rosbuild_add_executable(gps_example_subscriber src/gps_subscriber_example.cpp)

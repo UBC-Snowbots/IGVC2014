@@ -13,7 +13,7 @@ double* ReturnWaypoints()
 	int count = 0;
 	int array_size;
 	double* waypoints_array;
-	ifstream waypoints_file ("waypoints.txt");
+	ifstream waypoints_file ("/home/jechli/Documents/Snowbots/IGVC2013/sb_gps/WaypointsTxt/waypoints.txt");
 	if (waypoints_file.is_open())
 	{
 		while (getline(waypoints_file, output))
@@ -42,6 +42,7 @@ double* ReturnWaypoints()
 	return waypoints_array;
 }
 
+/* Example usage:
 int main() {
 	double* x = ReturnWaypoints();
 	int size = sizeof(x);
@@ -50,3 +51,5 @@ int main() {
 	while ( i < size*2 ) { cout << x[i] << "\n"; i++; }
 	return 0;
 }
+*/
+
