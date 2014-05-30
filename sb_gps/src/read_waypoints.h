@@ -1,26 +1,9 @@
-#include<iostream>
-#include<fstream>
-#include <string>
+#pragma once
 
-using namespace std;
+struct waypoint
+{
+	double long_x;
+	double lat_y;
+};
 
-int main() {
-
-	string output;
-	ifstream waypoints_file ("waypoints.txt");
-	if (waypoint_file.is_open())
-	{
-	  while (getline(waypoints_file, output))
-	  {
-	    cout << output << "\n";
-	  }
-	  waypoints_file.close();
-	}
-
-	else 
-	{
-	  cout << "Unable to open file";
-	}
-
-	return 0;
-}
+struct waypoint* ReturnWaypoints();

@@ -1,13 +1,9 @@
-#include<iostream>
-#include<fstream>
-#include <string>
+#pragma once
 
-using namespace std;
+struct waypoint
+{
+	double long_x;
+	double lat_y;
+};
 
-int main() {
-
-	string output;
-	ifstream waypoints_file ("waypoints.txt");
-	if (waypoint_file.is_open())
-	{
-		
+struct waypoint* ReturnWaypoint(int order);
