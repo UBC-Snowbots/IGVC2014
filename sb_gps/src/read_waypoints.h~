@@ -1,0 +1,13 @@
+#include<iostream>
+#include<fstream>
+#include <string>
+
+using namespace std;
+
+int main() {
+
+	string output;
+	ifstream waypoints_file ("waypoints.txt");
+	if (waypoint_file.is_open())
+	{
+		
