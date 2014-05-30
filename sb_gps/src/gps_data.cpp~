@@ -17,7 +17,7 @@ static const string GPS_OUTPUT_TOPIC = "sb_gps_output"; // this node's output: p
 double lat, lon, goal_lat, goal_lon, dist, x_dist, y_dist;
 
 
-// Subscriber: lat and long
+// for subscribers
 void positionCallback(const sensor_msgs::NavSatFix::ConstPtr& msg)
 {
 	lat = msg->latitude; // float64
@@ -27,20 +27,17 @@ void positionCallback(const sensor_msgs::NavSatFix::ConstPtr& msg)
 	// msg->covariance?
 }
 
-// Subscriber: timestamp of gps reading
 void timeStampCallback(const sensor_msgs::TimeReference::ConstPtr& msg)
 {
 	ROS_INFO("Timestamp: %s", msg->time_ref->data.c_str()); //time
 }
 
-// Subscriber: linear velocity
 void velocityCallback(const geometry_msgs::TwistStamped::ConstPtr& msg) 
 {
-	msg->twist->linear // vector3
+	//msg->twist->linear // vector3
 	//msg->twist->angular // vector3
 }
 
-// Calculates Euclidean distance from position to goal
 void calculateDistance(const double x, const double y, const double goal_x, const double goal_y)
 {
 	x_dist = goal_x - x;
@@ -48,18 +45,14 @@ void calculateDistance(const double x, const double y, const double goal_x, cons
 	dist = sqrt(pow(x_dist, 2.0) + pow(y_dist, 2.0));
 }
 
-
 int main(int argc, char **argv) 
 {
 	ros::init(argc, argv, GPS_NODE_NAME); // start node
 	ros::NodeHandle nh; // main access point to communication with ROS system. First one initializes node.
-
 	ros::Publisher gps_data_pub = nh.advertise<SOME SB_GPS_MSG>(GPS_OUTPUT_TOPIC, 1000); // publisher for output
-
 	ros::Subscriber position_sub = nh.subscribe(GPS_POSITION_TOPIC, 1000, positionCallback);
 	ros::Subscriber timestamp_sub = nh.subscribe(GPS_TIMESTAMP_TOPIC, 1000, timeStampCallback);
 	ros::Subscriber velocity_sub = nh.subscribe(GPS_VELOCITY_TOPIC, 1000, velocityCallback);
-
 	ros::Rate loop_rate(10); // 10hz loop rate
   
 	int count = 0;
