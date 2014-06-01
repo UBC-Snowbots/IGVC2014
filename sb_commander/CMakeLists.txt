@@ -1,18 +1,15 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(sb_gps)
+project(sb_commander)
 
-## Find catkin macros and libraries
-## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
-## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   std_msgs
 )
 
-## System dependencies are found with CMake's conventions
-# find_package(Boost REQUIRED COMPONENTS system)
+catkin_package()
 
+include_directories(${catkin_INCLUDE_DIRS})
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -81,7 +78,7 @@ find_package(catkin REQUIRED COMPONENTS
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
 #  INCLUDE_DIRS include
-#  LIBRARIES sb_gps
+#  LIBRARIES sb_commander
 #  CATKIN_DEPENDS roscpp rospy std_msgs
 #  DEPENDS system_lib
 )
@@ -96,24 +93,23 @@ catkin_package(
 include_directories(
   ${catkin_INCLUDE_DIRS}
 )
-add_executable(sb_gps src/gps_data.cpp)
 
 ## Declare a cpp library
-# add_library(sb_gps
-#   src/${PROJECT_NAME}/sb_gps.cpp
+# add_library(sb_commander
+#   src/${PROJECT_NAME}/sb_commander.cpp
 # )
 
 ## Declare a cpp executable
-# add_executable(sb_gps_node src/sb_gps_node.cpp)
+add_executable(sb_commander_node src/sb_commander_node.cpp)
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
-# add_dependencies(sb_gps_node sb_gps_generate_messages_cpp)
+# add_dependencies(sb_commander_node sb_commander_generate_messages_cpp)
 
 ## Specify libraries to link a library or executable target against
- target_link_libraries(sb_gps
-   ${catkin_LIBRARIES}
- )
+# target_link_libraries(sb_commander_node
+#   ${catkin_LIBRARIES}
+# )
 
 #############
 ## Install ##
@@ -130,7 +126,7 @@ add_executable(sb_gps src/gps_data.cpp)
 # )
 
 ## Mark executables and/or libraries for installation
-# install(TARGETS sb_gps sb_gps_node
+# install(TARGETS sb_commander sb_commander_node
 #   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 #   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 #   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
@@ -155,10 +151,8 @@ add_executable(sb_gps src/gps_data.cpp)
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_sb_gps.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_sb_commander.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()
 
-## Add folders to be run by python nosetests
-# catkin_add_nosetests(test)
