@@ -10,7 +10,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   genmsg
 )
-
+find_package(OpenCV REQUIRED)
 add_message_files(FILES Num.msg)
 
 ## System dependencies are found with CMake's conventions
@@ -98,6 +98,7 @@ catkin_package(
 # include_directories(include)
 include_directories(
   ${catkin_INCLUDE_DIRS}
+  ${OpenCV_INCLUDE_DIRS}
 )
 
 ## Declare a cpp library
@@ -166,6 +167,6 @@ include_directories(
 # catkin_add_nosetests(test)
 
 add_executable(LaneDetector src/LaneDetector.cpp)
-target_link_libraries(LaneDetector ${catkin_LIBRARIES})
+target_link_libraries(LaneDetector ${catkin_LIBRARIES} ${OpenCV_LIBS})
 
 
