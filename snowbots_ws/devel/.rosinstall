@@ -1,2 +1,2 @@
 - setup-file:
-    local-name: /home/jannicke/catkin_ws/devel/setup.sh
+    local-name: /home/jannicke/IGVC2014/snowbots_ws/devel/setup.sh
