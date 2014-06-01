@@ -1,7 +1,9 @@
 /*
  * Commander Node
+ * Intelligent Ground Vehicle Challenge 2014
+ * Oakland University - Rochester, Michigan
  * 
- * UBC Snowbots - IGVC 2014
+ * UBC Snowbots
  *
  */
 
@@ -15,7 +17,7 @@
 #include <geometry_msgs/Vector3.h>
 #include <std_msgs/Float64.h>
 #include <sensor_msgs/LaserScan.h>
-#include "sb_msgs/RobotState.h"
+
 #include "sb_msgs/CarCommand.h"
 #include <sb_msgs/LidarNav.h>
 
@@ -60,37 +62,7 @@ void vision_callback(const std_msgs::Float64ConstPtr& float64Msg)
 //call back for lidar directions
 void ir_state_callback(const sensor_msgs::LaserScanConstPtr& msg_ptr)
 {
-   data.GetConstants(msg_ptr->range_max, msg_ptr->range_min, msg_ptr->angle_max, msg_ptr->angle_min, msg_ptr->angle_increment);		
-
-
-	for (int i = 0; i < msg_ptr->ranges.size(); i++) 
-	{
-	   data.my_data[i] = msg_ptr->ranges[i];
-	} 
-	
-	data.GetDistanceAngle();
-	data.IdentifyPoint();
-	data.SeparatePoint(); 
-	
-	path.FindClosestPoint(data.left, data.front, data.right); // left, front, right
-	path.DeterminePath();
-
-	throttle = path.car.throttle;
-	steering = path.car.steering; 
-
-	if (my_count == 2)
-	{
-		//data.PrintConeStage();
-		//data.PrintConstants();
-		//path.PrintClosestPointStage();
-		//data.PrintConstants();
-		path.PrintClosestPoint();
-		my_count = 0;
-	}
-	
-	data.Clear();
-	path.Clear();
-	my_count++;
+   
 }
 
 sb_msgs::CarCommand driver()
@@ -117,7 +89,7 @@ int main( int argc, char** argv )
     //subscribes to IR topic to receive data from arduino
     //lidar_class my_lidar_class;
 
-    ros::Subscriber IR_state = n.subscribe(IR_SUBSCRIBE_TOPIC, 20, ir_state_callback);
+    ros::Subscriber IR_state = n.subscribe(LIDAR_SUBSCRIBE_TOPIC, 20, ir_state_callback);
   //  ros::Subscriber Lidar_instructions = n.subscribe(LIDAR_SUBSCRIBE_TOPIC, 3, &lidar_class::callback,&my_lidar_class);
     ros::Subscriber Vision = n.subscribe(VISION_SUBSCRIBE_TOPIC, 20, vision_callback);
 

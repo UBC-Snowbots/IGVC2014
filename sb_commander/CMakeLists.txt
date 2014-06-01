@@ -5,6 +5,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   std_msgs
+  sb_msgs
 )
 
 catkin_package()
@@ -79,7 +80,7 @@ include_directories(${catkin_INCLUDE_DIRS})
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES sb_commander
-#  CATKIN_DEPENDS roscpp rospy std_msgs
+  CATKIN_DEPENDS roscpp rospy std_msgs sb_msgs
 #  DEPENDS system_lib
 )
 
@@ -107,9 +108,9 @@ add_executable(sb_commander_node src/sb_commander_node.cpp)
 # add_dependencies(sb_commander_node sb_commander_generate_messages_cpp)
 
 ## Specify libraries to link a library or executable target against
-# target_link_libraries(sb_commander_node
-#   ${catkin_LIBRARIES}
-# )
+ target_link_libraries(sb_commander_node
+   ${catkin_LIBRARIES}
+ )
 
 #############
 ## Install ##
