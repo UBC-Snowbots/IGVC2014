@@ -1,5 +1,6 @@
 #include <ros/ros.h>
 #include <std_msgs/String.h>
+#include <geometry_msgs/Twist.h>
 #include <sstream>
 #include <iostream>
 #include <string>
@@ -10,9 +11,9 @@ using namespace std;
 static const string NODE_NAME = "gps_example_subscriber";
 static const string GPS_OUTPUT_TOPIC = "sb_gps_output";
 
-void gpsCallback(const std_msgs::String::ConstPtr& msg) 
+void gpsCallback(const geometry_msgs::Twist::ConstPtr& msg) 
 {
-	ROS_INFO("Got back: [%s]", msg->data.c_str());
+	ROS_INFO("Got back: [Lin.x = %f, Lin.y = %f, Ang.z = %f]", msg->linear.x, msg->linear.y, msg->angular.z);
 }
 
 int main(int argc, char **argv) 
