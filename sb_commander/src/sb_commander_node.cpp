@@ -35,6 +35,7 @@ static const string NODE_NAME          			= "commander";
 static const string CAR_PUBLISH_TOPIC				= "cmd_vel";
 static const string LIDAR_SUBSCRIBE_TOPIC  	= "lidar_nav";  // lidar_nav node suggestion
 static const string VISION_SUBSCRIBE_TOPIC	= "vision_nav"; // vision_nav node suggestion
+static const string GPS_SUBSCRIBE_TOPIC		= "gps_nav"; // jen
 static const int LOOP_FREQ = 30; // Hz
 
 double my_data[550];
@@ -65,6 +66,13 @@ void ir_state_callback(const sensor_msgs::LaserScanConstPtr& msg_ptr)
    
 }
 
+// jen
+void gps_callback(const geometry_msgs::Twist::ConstPtr& msg) 
+{
+	ROS_INFO("\nGot back: [Lin.x = %f, Lin.y = %f, Ang.z = %f]", msg->linear.x, msg->linear.y, msg->angular.z);
+}
+
+
 sb_msgs::CarCommand driver()
 {
     sb_msgs::CarCommand car_msg;
@@ -92,6 +100,7 @@ int main( int argc, char** argv )
     ros::Subscriber IR_state = n.subscribe(LIDAR_SUBSCRIBE_TOPIC, 20, ir_state_callback);
   //  ros::Subscriber Lidar_instructions = n.subscribe(LIDAR_SUBSCRIBE_TOPIC, 3, &lidar_class::callback,&my_lidar_class);
     ros::Subscriber Vision = n.subscribe(VISION_SUBSCRIBE_TOPIC, 20, vision_callback);
+    ros::Subscriber GPS = n.subscribe(GPS_SUBSCRIBE_TOPIC, 20, gps_callback); // jen
 
     ros::Publisher car_pub = n.advertise<geometry_msgs::Twist>(CAR_PUBLISH_TOPIC, 1);
 	
