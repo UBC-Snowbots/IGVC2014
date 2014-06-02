@@ -9,7 +9,7 @@
 using namespace std;
 
 static const string NODE_NAME = "gps_example_subscriber";
-static const string GPS_OUTPUT_TOPIC = "sb_gps_output";
+static const string GPS_OUTPUT_TOPIC = "gps_nav";
 
 void gpsCallback(const geometry_msgs::Twist::ConstPtr& msg) 
 {

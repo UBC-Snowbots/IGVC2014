@@ -1,6 +1,7 @@
 #include <ros/ros.h>
 #include <std_msgs/String.h>
 #include <geometry_msgs/Twist.h>
+#include <sensor_msgs/NavSatFix.h>
 #include <sstream>
 #include <iostream>
 #include <fstream>
@@ -22,26 +23,40 @@ int GetWaypoint();
 void CalculateDistance(); 
 double* ReturnWaypoints();
 
-static const string GPS_NODE_NAME = "gps_node"; 
-static const string GPS_OUTPUT_TOPIC = "gps_nav"; 
+static const string GPS_NODE_NAME = "temp"; // gps_node TODO 
+static const string GPS_OUTPUT_TOPIC = "temp"; // gps_nav TODO
+static const string GPS_INPUT_TOPIC = "fix"; // TODO
+bool isAtGoal = false, isFinished = false; // TODO
 double lat, lon, goal_lat, goal_lon, dist, x_dist, y_dist;
 struct waypoint current_waypoint;
 struct waypoint goal_waypoint;
 double* waypoints_list = ReturnWaypoints();
 int size = sizeof(waypoints_list)*2, c = 0;
+// var for checking last waypoint TODO
+
+// callback fnc TODO
+void gpsCallback(const sensor_msgs::NavSatFix::ConstPtr& msg) 
+{
+// TODO:
+	msg->status // NavSatStatus
+	current_waypoint.lat_y = msg->latitude;
+	current_waypoint.long_x = msg->longitude;
+	ROS_INFO("\n>>GPS\nLat(y): %f\nLong(x): %f\n>>SAVED\nLat(y): %f\nLong(x): %f\n", msg->latitude, msg->longitude, current_waypoint.lat_y, current_waypoint.long_x);
+}
 
 
 int main(int argc, char **argv) 
 {
 
 	// hard code current waypoint
-	current_waypoint.long_x = 24;
-	current_waypoint.lat_y = 100;
+	current_waypoint.long_x = 0;
+	current_waypoint.lat_y = 0;
 
 	ros::init(argc, argv, GPS_NODE_NAME); // start node
 	ros::NodeHandle nh; // main access point to communication with ROS system. First one initializes node.
 
-	ros::Publisher gps_data_pub = nh.advertise<geometry_msgs::Twist>(GPS_OUTPUT_TOPIC, 1000); // publisher for output
+	ros::Publisher gps_data_pub = nh.advertise<geometry_msgs::Twist>(GPS_OUTPUT_TOPIC, 20); // publisher for output
+	ros::Subscriber gps_sub = n.subscribe(GPS_INPUT_TOPIC, 20, gpsCallback); // TODO
 
 	ros::Rate loop_rate(10); // 10hz loop rate
 
@@ -75,21 +90,41 @@ int main(int argc, char **argv)
 // Get the next waypoint: returns n for the nth waypoint, starting at 1
 // return -1 for 'no more waypoints'
 int GetWaypoint() 
+{// TODO
+	if (c >= size ) { isFinished = true; }
+	if (c == 0 || isAtGoal) {
+		goal_waypoint.long_x = waypoints_list[c];
+		goal_waypoint.lat_y = waypoints_list[c+1];
+		c += 2;
+		isAtGoal = false;
+		return (c+1)/2;
+	}
+}
+
+
+// TODO Checks if we are sufficiently close to the waypoint
+void CheckWaypointStatus() 
 {
-	if (c >= size ) { c = 0; }
-	goal_waypoint.long_x = waypoints_list[c];
-	goal_waypoint.lat_y = waypoints_list[c+1];
-	c += 2;
-	return (c+1)/2;
+	int cx, cy, gx, gy;
+	cx = ceil(current_waypoint.long_x*10000)/10000;
+	cy = ceil(current_waypoint.lat_y*10000)/10000;
+	gx = ceil(goal_waypoint.long_x*10000)/10000;
+	gy = ceil(goal_waypoint.lat_y*10000)/10000;
+	if (cx == gx && cy == gy) { isAtGoal = true; }
+	// something to check if it is the last waypoint TODO
+
 }
 
 
 // Calculates Euclidean distance from position to goal
 void CalculateDistance()
 {
-	x_dist = goal_waypoint.long_x - current_waypoint.long_x;
-	y_dist = goal_waypoint.lat_y - current_waypoint.lat_y;
-	dist = sqrt(pow(x_dist, 2.0) + pow(y_dist, 2.0));
+	if (current_waypoint.long_x == 0 || current_waypoint.lat_y == 0) { dist = -1; }
+	else {
+		x_dist = goal_waypoint.long_x - current_waypoint.long_x;
+		y_dist = goal_waypoint.lat_y - current_waypoint.lat_y;
+		dist = sqrt(pow(x_dist, 2.0) + pow(y_dist, 2.0));
+	}
 }	
 
 
@@ -100,7 +135,7 @@ double* ReturnWaypoints()
 	int count = 0;
 	int array_size;
 	double* waypoints_array = NULL;
-	ifstream waypoints_file ("/home/jechli/snowbots_ws/src/WaypointsTxt/waypoints.txt");
+	ifstream waypoints_file ("/home/jechli/snowbots_ws/src/WaypointsTxt/waypoints.txt"); // TODO
 	if (waypoints_file.is_open())
 	{
 		while (getline(waypoints_file, output))
