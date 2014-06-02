@@ -47,7 +47,8 @@ float calculateDirection1();
 static const string NODE_NAME = "LaneDetector";
 static const string PUBLISH_TOPIC = "vision_vel";
 const int MSG_QUEUE_SIZE = 20;
-
+int dx = 0;
+int dy = 0;
 double steering = 1;
 double throttle = 2;
 //---VISION---------------------
@@ -73,7 +74,7 @@ int main(int argc, char **argv)
   int count = 0;
   geometry_msgs::Twist twist;
 twist.linear.x = 0;
-twist.linear.y = 0;
+twist.linear.y = 1;
 twist.linear.z = 0;
 twist.angular.x = 0;
 twist.angular.y = 0;
@@ -82,7 +83,7 @@ twist.angular.z = 0;
 
 //----VISION--------
 //Initialize camera
-	VideoCapture cap(0); // open the default camera
+	VideoCapture cap(-1); // open the default camera
 	cout<<"youououou";
 	//VideoCapture cap("sample-course.avi");
 	if (!cap.isOpened())
@@ -127,10 +128,10 @@ twist.angular.z = 0;
 		//waitKey(0); //use waitKey(0); to enter "debugging" mode
 		if (waitKey(1) == 27)
 			break; // Wait for one ms, break if escape is pressed
-	
-
+ if (dx == 0) dx = 1;
+ twist.angular.z = atan(dy*1.0/dx);
     chatter_pub.publish(twist);
-   ROS_INFO("Vision Published: throttle - %f, steering - %f",throttle,steering);
+   ROS_INFO("Vision Published: y linear- %f, z angular - %f",twist.linear.y,twist.angular.z);
 
     ros::spinOnce();
 
@@ -346,9 +347,7 @@ void getDirection(void) {
 		int betweenRow = 10;
 		int x = 0;
 		int y = 0;
-		int dx = 0;
-		int dy = 0;
-		//TODO: for... different horizontal lines to minimize noise, starting with just the centreline
+		
 
 		int numLines = 0;
 		for (int i = 0; i <= 1; i++) {
