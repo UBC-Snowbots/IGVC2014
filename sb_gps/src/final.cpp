@@ -33,7 +33,7 @@ double lat, lon, goal_lat, goal_lon, dist, x_dist, y_dist;
 struct waypoint current_waypoint;
 struct waypoint goal_waypoint;
 double* waypoints_list = ReturnWaypoints();
-int size = sizeof(waypoints_list)*2, c = 0;
+int size = sizeof(waypoints_list), c = 0;
 // var for checking last waypoint TODO
 
 /*
@@ -61,7 +61,7 @@ int main(int argc, char **argv)
 {
 
 	// hard code current waypoint 
-	current_waypoint.long_x = 0; // keep like this until 
+	current_waypoint.long_x = 0; // keep like this until we start receiving gps data
 	current_waypoint.lat_y = 0;
 
 	ros::init(argc, argv, GPS_NODE_NAME); // start node
