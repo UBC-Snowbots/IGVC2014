@@ -50,6 +50,10 @@ find_package(catkin REQUIRED COMPONENTS
    CarCommand.msg
    VisionNav.msg
    LidarNav.msg
+   TurretCommand.msg
+   ServoCommand.msg
+   RobotState.msg
+   IMU.msg
  )
 
 ## Generate services in the 'srv' folder
