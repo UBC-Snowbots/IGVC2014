@@ -2,6 +2,7 @@
 #include <std_msgs/String.h>
 #include <geometry_msgs/Twist.h>
 #include <sensor_msgs/NavSatFix.h>
+#include "sb_gps/Coord.h"
 #include <sstream>
 #include <iostream>
 #include <fstream>
@@ -22,10 +23,11 @@ struct waypoint
 int GetWaypoint();
 void CalculateDistance(); 
 double* ReturnWaypoints();
+void CheckWaypointStatus();
 
 static const string GPS_NODE_NAME = "temp"; // gps_node TODO 
-static const string GPS_OUTPUT_TOPIC = "temp"; // gps_nav TODO
-static const string GPS_INPUT_TOPIC = "fix"; // TODO
+static const string GPS_OUTPUT_TOPIC = "temp_output"; // gps_nav TODO
+static const string GPS_INPUT_TOPIC = "sample_coord"; // fix TODO
 bool isAtGoal = false, isFinished = false; // TODO
 double lat, lon, goal_lat, goal_lon, dist, x_dist, y_dist;
 struct waypoint current_waypoint;
@@ -34,6 +36,7 @@ double* waypoints_list = ReturnWaypoints();
 int size = sizeof(waypoints_list)*2, c = 0;
 // var for checking last waypoint TODO
 
+/*
 // callback fnc TODO
 void gpsCallback(const sensor_msgs::NavSatFix::ConstPtr& msg) 
 {
@@ -43,22 +46,31 @@ void gpsCallback(const sensor_msgs::NavSatFix::ConstPtr& msg)
 	current_waypoint.long_x = msg->longitude;
 	ROS_INFO("\n>>GPS\nLat(y): %f\nLong(x): %f\n>>SAVED\nLat(y): %f\nLong(x): %f\n", msg->latitude, msg->longitude, current_waypoint.lat_y, current_waypoint.long_x);
 }
+*/
+
+// temp callback
+void gpsCallback(const sb_gps::Coord::ConstPtr& msg) 
+{
+	current_waypoint.lat_y = msg->latitude;
+	current_waypoint.long_x = msg->longitude;
+	ROS_INFO("\n>>GPS\nLat(y): %f\nLong(x): %f\n>>SAVED\nLat(y): %f\nLong(x): %f\n", msg->latitude, msg->longitude, current_waypoint.lat_y, current_waypoint.long_x);
+}
 
 
 int main(int argc, char **argv) 
 {
 
-	// hard code current waypoint
-	current_waypoint.long_x = 0;
+	// hard code current waypoint 
+	current_waypoint.long_x = 0; // keep like this until 
 	current_waypoint.lat_y = 0;
 
 	ros::init(argc, argv, GPS_NODE_NAME); // start node
 	ros::NodeHandle nh; // main access point to communication with ROS system. First one initializes node.
 
 	ros::Publisher gps_data_pub = nh.advertise<geometry_msgs::Twist>(GPS_OUTPUT_TOPIC, 20); // publisher for output
-	ros::Subscriber gps_sub = n.subscribe(GPS_INPUT_TOPIC, 20, gpsCallback); // TODO
+	ros::Subscriber gps_sub = nh.subscribe(GPS_INPUT_TOPIC, 20, gpsCallback); // TODO subscribe to gps data
 
-	ros::Rate loop_rate(10); // 10hz loop rate
+	ros::Rate loop_rate(5); // 10hz loop rate
 
 	int next_waypoint = GetWaypoint();
 
@@ -73,15 +85,20 @@ int main(int argc, char **argv)
 	while (ros::ok()) 
 	{
 		CalculateDistance();
+
+		// calculated angular z
 		if (x_dist / abs(x_dist) == -1) { msg.angular.z = -1; }
 		else { msg.angular.z = 1; }
+
 		msg.linear.x = x_dist;
 		msg.linear.y = y_dist;
 		gps_data_pub.publish(msg);
 		ROS_INFO("\nLinear.x = %f\nLinear.y = %f\nAngular.z = %f\n", msg.linear.x, msg.linear.y, msg.angular.z);
 		ros::spinOnce();
 		loop_rate.sleep(); // sleep for 10hz
+		CheckWaypointStatus();
 		next_waypoint = GetWaypoint();
+		if (isFinished) { return 0; }
 	}
 	return 0;
 }
@@ -89,6 +106,7 @@ int main(int argc, char **argv)
 
 // Get the next waypoint: returns n for the nth waypoint, starting at 1
 // return -1 for 'no more waypoints'
+// void this function TODO
 int GetWaypoint() 
 {// TODO
 	if (c >= size ) { isFinished = true; }
@@ -105,6 +123,7 @@ int GetWaypoint()
 // TODO Checks if we are sufficiently close to the waypoint
 void CheckWaypointStatus() 
 {
+	// estimated to within 1.1m
 	int cx, cy, gx, gy;
 	cx = ceil(current_waypoint.long_x*10000)/10000;
 	cy = ceil(current_waypoint.lat_y*10000)/10000;

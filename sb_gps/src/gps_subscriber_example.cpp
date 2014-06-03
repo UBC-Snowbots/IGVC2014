@@ -8,8 +8,8 @@
 
 using namespace std;
 
-static const string NODE_NAME = "gps_example_subscriber";
-static const string GPS_OUTPUT_TOPIC = "gps_nav";
+static const string NODE_NAME = "subscriber";
+static const string GPS_OUTPUT_TOPIC = "temp_output";
 
 void gpsCallback(const geometry_msgs::Twist::ConstPtr& msg) 
 {
@@ -20,7 +20,7 @@ int main(int argc, char **argv)
 {
 	ros::init(argc, argv, NODE_NAME);
 	ros::NodeHandle n;
-	ros::Subscriber sub = n.subscribe(GPS_OUTPUT_TOPIC, 1000, gpsCallback);
+	ros::Subscriber sub = n.subscribe(GPS_OUTPUT_TOPIC, 20, gpsCallback);
 	ros::spin();
 	return 0;
 }
