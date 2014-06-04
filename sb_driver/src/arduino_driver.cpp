@@ -138,7 +138,7 @@ int main(int argc, char** argv)
 	    } else {  
             //use carCommand and turretCommand
 			ss << (char)IDENTIFIER_BYTE << twist_x[0] << twist_x[1] << twist_x[2] << twist_y[0] << twist_y[1] << twist_y[2] << twist_z[0] << twist_z[1] << twist_z[2];
-cout <<ss.str()<<endl;
+//cout <<ss.str()<<endl;
 	    }
 	    link.writeData(ss.str(), 10);
 	    
@@ -148,8 +148,9 @@ cout <<ss.str()<<endl;
 	    //read from arduino
 	    //processData(link.readData(), state);
 
-		cout << link.readData() <<"\n";
+		cout << link.readData(30) <<"\n";
 
+		link.clearBuffer();
 	    //populate GUI data
 	    //TODO
 	    
