@@ -14,6 +14,7 @@
 #include <sensor_msgs/LaserScan.h>
 #include <geometry_msgs/Vector3.h>
 #include <geometry_msgs/Twist.h>
+#include <sb_msgs/CarCommand.h>
 
 using namespace ros;
 using namespace std;
@@ -26,15 +27,15 @@ static const double REDZONE      = 0.5;
 //ros related constants
 static const string NODE_NAME       = "lidar_nav";
 static const string SUBSCRIBE_TOPIC = "scan";
-static const string PUBLISH_TOPIC   = "vision_vel";
+static const string PUBLISH_TOPIC   = "commander";
 static int LOOP_FREQ = 30;
 geometry_msgs::Vector3 directions;
+sb_msgs::CarCommand car_command;
 
-
-double clamp (double in)
+double clamp (double in, double cap)
 {
-	if      ( in >  1.0) return 1.0;
-	else if ( in < -1.0) return -1.0;
+	if      ( in >  cap) return cap;
+	else if ( in < -1 * cap) return (-1 * cap);
 	else                 return in;	
 }
 
@@ -75,12 +76,17 @@ void callback(const sensor_msgs::LaserScanConstPtr& msg_ptr)
 
 	if (valid_rays != 0)
 	{
-		directions.x = -1 * x_total / valid_rays;
-		directions.y = 1  * y_total / valid_rays;
-		directions.z = 0;
-		directions.x = clamp(directions.x);
-		directions.y = clamp(directions.y);
-		printf("x_total: %f   y_total: %f\n", x_total, y_total);
+	//	directions.x = -1 * x_total / valid_rays;
+	//	directions.y = 1  * y_total / valid_rays;
+	//	directions.z = 0;
+	//	directions.x = clamp(directions.x);
+	//	directions.y = clamp(directions.y);
+		car_command.throttle = -1 * x_total / valid_rays;
+		car_command.steering =  1 * y_total / valid_rays;
+		car_command.priority = 0.5;
+		car_command.throttle = clamp(car_command.throttle, 0.5);
+		car_command.steering = clamp(car_command.steering, 1);
+	//	printf("x_total: %f   y_total: %f\n", x_total, y_total);
 	}
 
 	// check for blockages
@@ -92,31 +98,27 @@ void callback(const sensor_msgs::LaserScanConstPtr& msg_ptr)
 		if (dist < REDZONE)
 		{
 			// stop moving forward
-			directions.x = 0;			
+			// directions.x = 0;
+			car_command.throttle = 0;
+			car_command.priority = 1;		
 		}		
 	}
 }
 
-geometry_msgs::Twist twist_converter(geometry_msgs::Vector3 vec)
+geometry_msgs::Twist twist_converter(sb_msgs::CarCommand cc)
 {
 	geometry_msgs::Twist twist;
 	geometry_msgs::Vector3 Linear;
 	geometry_msgs::Vector3 Angular;
 	
 	
-	Linear.x = 0;
-	if (vec.x > 0.5)
-		Linear.y = 0.5;
-	else
-		Linear.y = vec.x;
-	Linear.z = 0;
+	twist.linear.x = 0;
+	twist.linear.y = cc.throttle;
+	twist.linear.z = 0;
 
-	Angular.x = 0;
-	Angular.y = 0;
-	Angular.z = vec.y;
-
-	twist.linear = Linear;
-	twist.angular = Angular;
+	twist.angular.x = 0;
+	twist.angular.y = 0;
+	twist.angular.z = cc.steering;
 
 	return twist;	
 }
@@ -137,9 +139,10 @@ int main (int argc, char** argv)
 	ROS_INFO("going");
 	while(ros::ok())
 	{
-		geometry_msgs::Twist twistMsg = twist_converter(directions);
-		ROS_INFO("the twist vector is %f , %f", twistMsg.linear.y, twistMsg.angular.z); 
-		car_pub.publish(twistMsg);
+	//	geometry_msgs::Twist twistMsg = twist_converter(car_command);
+	//	ROS_INFO("the twist vector is %f , %f", twistMsg.linear.y, twistMsg.angular.z);
+		ROS_INFO("CarCommand - throttle: %f , steering: %f , priority: %f", car_command.throttle, car_command.steering, car_command.priority); 
+		car_pub.publish(car_command);
 	  	ros::spinOnce();
     		loop_rate.sleep();	
   	}
