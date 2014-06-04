@@ -29,7 +29,7 @@ static const string GPS_NODE_NAME = "gps_node";
 static const string GPS_OUTPUT_TOPIC = "gps_nav"; 
 static const string GPS_INPUT_TOPIC = "gps_data"; // jarek's node TODO
 bool isAtGoal = false, isFinished = false; 
-double lat, lon, goal_lat, goal_lon, angle, x_dist, y_dist;
+double lat, lon, goal_lat, goal_lon, angle, x_dist, y_dist, current_direction;
 struct waypoint current_waypoint;
 struct waypoint goal_waypoint;
 double* waypoints_list = ReturnWaypoints();
@@ -42,6 +42,7 @@ void gpsCallback(const sb_msgs::gps::ConstPtr& msg)
 {
 	current_waypoint.lat_y = msg->latitude;
 	current_waypoint.long_x = msg->longitude;
+	current_direction = msg->compass; // direction
 	// just for testing:
 	ROS_INFO("\n>>GPS\nLat(y): %f\nLong(x): %f\n>>SAVED\nLat(y): %f\nLong(x): %f\n", msg->latitude, msg->longitude, current_waypoint.lat_y, current_waypoint.long_x);
 }
@@ -53,6 +54,7 @@ int main(int argc, char **argv)
 	// hard code current waypoint 
 	current_waypoint.long_x = 0; // keep like this until we start receiving gps data
 	current_waypoint.lat_y = 0;
+	current_direction = 0;
 
 	ros::init(argc, argv, GPS_NODE_NAME); // start node
 	ros::NodeHandle nh; // main access point to communication with ROS system. First one initializes node.
@@ -127,26 +129,30 @@ void CalculateAngle()
 	x_dist = goal_waypoint.long_x - current_waypoint.long_x;
 	y_dist = goal_waypoint.lat_y - current_waypoint.lat_y;
 
-	if (current_waypoint.long_x == 0 || current_waypoint.lat_y == 0) { angle = 0; } 
+	if (current_waypoint.long_x == 0 || current_waypoint.lat_y == 0) { angle = 0; return; } 
 	else if (current_waypoint.long_x == goal_waypoint.long_x) {
 		if (y_dist / abs(y_dist) == -1) { angle = 180.00; }
 		else { angle = 0.00; }
 	}
 	else if (current_waypoint.lat_y == goal_waypoint.lat_y) {
-		if (x_dist / abs(x_dist) == -1) { angle = -90.00; }
+		if (x_dist / abs(x_dist) == -1) { angle = 270.00; }
 		else { angle = 90.00; }
 	}
 	else {
 		angle = atan(abs(x_dist)/abs(y_dist)); 
 		if (x_dist / abs(x_dist) == -1) {
-			if (y_dist / abs(y_dist) == -1) { angle = (-1)*angle - 90.0; }
-			else { angle = (-1)*angle; } 		
+			if (y_dist / abs(y_dist) == -1) { angle += 180.00; }
+			else { angle += 270.00; } 		
 		}
 		else { // if x positive
 			if (y_dist / abs(y_dist) == -1) { angle += 90.0; }
 		}
 	}
+	if (abs(current_direction - angle) <= 5.00) { angle = 0; return; }
+	else if (abs(current_direction - angle) < 180.00) { angle = current_direction - angle; }
+	else { angle = 360.00 - current_direction + angle; angle *= -1;}  
 	angle = angle / 180.00;
+	return;
 }	
 
 
