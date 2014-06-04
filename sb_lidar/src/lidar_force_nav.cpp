@@ -19,14 +19,24 @@ using namespace ros;
 using namespace std;
 
 //Global constatns
-static const double IGNORE_ANGLE = 3.1415265;
+static const double IGNORE_ANGLE = 3.1415265; //pi radians = 90 degrees
+static const int    OFFSET_ANGLE = 20;        // offset from central ray
+static const double REDZONE      = 0.5;
 
 //ros related constants
 static const string NODE_NAME       = "lidar_nav";
-static const string SUBSCRIBE_TOPIC = "base_scan";
-static const string PUBLISH_TOPIC   = "cmd_vel";
+static const string SUBSCRIBE_TOPIC = "scan";
+static const string PUBLISH_TOPIC   = "vision_vel";
 static int LOOP_FREQ = 30;
-geometry_msgs::Vector3 vec;
+geometry_msgs::Vector3 directions;
+
+
+double clamp (double in)
+{
+	if      ( in >  1.0) return 1.0;
+	else if ( in < -1.0) return -1.0;
+	else                 return in;	
+}
 
 //call back function
 void callback(const sensor_msgs::LaserScanConstPtr& msg_ptr)
@@ -35,26 +45,27 @@ void callback(const sensor_msgs::LaserScanConstPtr& msg_ptr)
 	double x_total = 0.0;
 	double y_total = 0.0;
 	int valid_rays = 0;
+
 	for(int i =0; i < num_rays;i++)
 	{
 		float angle = msg_ptr->angle_min + i*(msg_ptr->angle_increment);
 		float dist = msg_ptr->ranges[i];
-		if(angle < -IGNORE_ANGLE)
-		{
+
+		if(angle < -IGNORE_ANGLE || angle > IGNORE_ANGLE)
 			continue;
-		}
-		if(angle > IGNORE_ANGLE)
-		{
+		if(dist > msg_ptr->range_max)
 			continue;
-		}
-		if(dist == msg_ptr->range_max)
+
+		if (dist != 0 && isinf(dist) == 0 && isnan(dist) == 0)
 		{
-			continue;
-		}
-		float force = -1.0/dist;
-		x_total += force * cos(angle);
-		y_total += force * sin(angle);
-		valid_rays++;		
+			float force = -1.0/dist;
+			if (isnan(cos(angle)) == false && isnan(sin(angle)) == false)
+			{
+				x_total += force * cos(angle);
+				y_total += force * sin(angle);
+				valid_rays++;
+			}
+		}		
 	}
 	if(valid_rays <= 0)
 	{
@@ -62,11 +73,28 @@ void callback(const sensor_msgs::LaserScanConstPtr& msg_ptr)
 		return;
 	}
 
+	if (valid_rays != 0)
+	{
+		directions.x = -1 * x_total / valid_rays;
+		directions.y = 1  * y_total / valid_rays;
+		directions.z = 0;
+		directions.x = clamp(directions.x);
+		directions.y = clamp(directions.y);
+		printf("x_total: %f   y_total: %f\n", x_total, y_total);
+	}
 
-	vec.x = -3* x_total / valid_rays;
-	vec.y = 5* y_total / valid_rays;
-	vec.z = 0;
-	
+	// check for blockages
+	for(int i =num_rays-OFFSET_ANGLE; i < num_rays+OFFSET_ANGLE;i++)
+	{
+		float angle = msg_ptr->angle_min + i*(msg_ptr->angle_increment);
+		float dist = msg_ptr->ranges[i];
+
+		if (dist < REDZONE)
+		{
+			// stop moving forward
+			directions.x = 0;			
+		}		
+	}
 }
 
 geometry_msgs::Twist twist_converter(geometry_msgs::Vector3 vec)
@@ -74,9 +102,13 @@ geometry_msgs::Twist twist_converter(geometry_msgs::Vector3 vec)
 	geometry_msgs::Twist twist;
 	geometry_msgs::Vector3 Linear;
 	geometry_msgs::Vector3 Angular;
-
-	Linear.x = vec.x;
-	Linear.y = 0;
+	
+	
+	Linear.x = 0;
+	if (vec.x > 0.5)
+		Linear.y = 0.5;
+	else
+		Linear.y = vec.x;
 	Linear.z = 0;
 
 	Angular.x = 0;
@@ -86,8 +118,7 @@ geometry_msgs::Twist twist_converter(geometry_msgs::Vector3 vec)
 	twist.linear = Linear;
 	twist.angular = Angular;
 
-	return twist;
-	
+	return twist;	
 }
 
 
@@ -106,12 +137,12 @@ int main (int argc, char** argv)
 	ROS_INFO("going");
 	while(ros::ok())
 	{
-		geometry_msgs::Twist twistMsg = twist_converter(vec);
-		ROS_INFO("the twist vector is %f , %f", twistMsg.linear.x, twistMsg.angular.z); 
+		geometry_msgs::Twist twistMsg = twist_converter(directions);
+		ROS_INFO("the twist vector is %f , %f", twistMsg.linear.y, twistMsg.angular.z); 
 		car_pub.publish(twistMsg);
-	  ros::spinOnce();
-    loop_rate.sleep();	
-  }
+	  	ros::spinOnce();
+    		loop_rate.sleep();	
+  	}
   ROS_INFO("shutting down node");
   
   return 0;

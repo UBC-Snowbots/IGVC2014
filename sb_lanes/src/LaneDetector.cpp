@@ -74,7 +74,7 @@ int main(int argc, char **argv)
   int count = 0;
   geometry_msgs::Twist twist;
 twist.linear.x = 0;
-twist.linear.y = 1;
+twist.linear.y = 0.25;
 twist.linear.z = 0;
 twist.angular.x = 0;
 twist.angular.y = 0;
@@ -83,7 +83,7 @@ twist.angular.z = 0;
 
 //----VISION--------
 //Initialize camera
-	VideoCapture cap(-1); // open the default camera
+	VideoCapture cap(1); // open the default camera
 	cout<<"youououou";
 	//VideoCapture cap("sample-course.avi");
 	if (!cap.isOpened())

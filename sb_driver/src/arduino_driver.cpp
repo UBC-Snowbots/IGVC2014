@@ -35,19 +35,22 @@ static const string PORT_NAME = "/dev/ttyUSB";
 static const string UNO_PORT_NAME = "/dev/ttyACM";
 static const string BLUETOOTH_PORT_NAME = "/dev/rfcomm";
 
-static const string CAR_COMMAND_TOPIC = "cmd_vel";
+static const string CAR_COMMAND_TOPIC = "vision_vel";
 static const string TURRET_COMMAND_TOPIC = "turret_command";
 static const string ESTOP_TOPIC = "eStop";
 static const string ROBOT_STATE_TOPIC = "robot_state";
 
 static const string INIT_STRING = "BG";
-static const char IDENTIFIER_BYTE = 13;
+static const char IDENTIFIER_BYTE = 'B';
 
 static const int SECOND = 1000000;
 
 //global variables
 ServoControl servo;
 MechControl mech;
+char twist_x[3]={'1','2','5'};
+char twist_y[3]={'1','2','5'};
+char twist_z[3]={'1','2','5'};
 
 bool eStop = false;
 
@@ -60,7 +63,7 @@ int main(int argc, char** argv)
 
 	//initialize serial communication
 	SerialCommunication link;
-	for (int i = 0; ; i++)
+	for (int i = 1; ; i++)
 	{
 	    stringstream ss;
 	    ss << i;	    
@@ -131,18 +134,21 @@ int main(int argc, char** argv)
 	    if (eStop)
 	    {	
 			cout << "eStop on" << endl;
-			ss << (char)IDENTIFIER_BYTE << (char)125 << (char)125 << (char)125;
+			ss << (char)IDENTIFIER_BYTE << "125125125";
 	    } else {  
             //use carCommand and turretCommand
-			ss << (char)IDENTIFIER_BYTE << (char)mech.twist_x << (char)mech.twist_y << (char)mech.twist_z;
+			ss << (char)IDENTIFIER_BYTE << twist_x[0] << twist_x[1] << twist_x[2] << twist_y[0] << twist_y[1] << twist_y[2] << twist_z[0] << twist_z[1] << twist_z[2];
+cout <<ss.str()<<endl;
 	    }
-	    link.writeData(ss.str(), 5);
+	    link.writeData(ss.str(), 10);
 	    
 	    //delay for sync
 	    usleep(20000);
 	    
 	    //read from arduino
 	    //processData(link.readData(), state);
+
+		cout << link.readData() <<"\n";
 
 	    //populate GUI data
 	    //TODO
@@ -183,7 +189,12 @@ void car_command_callback(const geometry_msgs::TwistConstPtr& msg_ptr)
 {
 	mech.twist_x = msg_ptr->linear.x * 125+125;
 	mech.twist_y = msg_ptr->linear.y * 125+125;
-    mech.twist_z = -msg_ptr->angular.z * 125+125;
+	mech.twist_z = -msg_ptr->angular.z * 125+125;
+
+	sprintf(twist_x,"%03d",mech.twist_x);
+	sprintf(twist_y,"%03d",mech.twist_y);
+	sprintf(twist_z,"%03d",mech.twist_z);
+//cout << twist_x[0] <<endl;
 }
 
 //turret_command_callback
