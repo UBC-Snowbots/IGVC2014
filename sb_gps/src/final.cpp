@@ -21,7 +21,7 @@ struct waypoint
 
 // functions
 int GetWaypoint();
-void CalculateDistance(); 
+void CalculateAngle(); 
 double* ReturnWaypoints();
 void CheckWaypointStatus();
 
@@ -29,7 +29,7 @@ static const string GPS_NODE_NAME = "temp"; // gps_node TODO
 static const string GPS_OUTPUT_TOPIC = "temp_output"; // gps_nav TODO
 static const string GPS_INPUT_TOPIC = "sample_coord"; // fix TODO
 bool isAtGoal = false, isFinished = false; // TODO
-double lat, lon, goal_lat, goal_lon, dist, x_dist, y_dist;
+double lat, lon, goal_lat, goal_lon, angle, x_dist, y_dist;
 struct waypoint current_waypoint;
 struct waypoint goal_waypoint;
 double* waypoints_list = ReturnWaypoints();
@@ -75,23 +75,19 @@ int main(int argc, char **argv)
 	int next_waypoint = GetWaypoint();
 
 	geometry_msgs::Twist msg;
+	// do nothing for linear
 	msg.linear.x = 0;
 	msg.linear.y = 0;
 	msg.linear.z = 0;
 	msg.angular.x = 0;
 	msg.angular.y = 0;
+	// angular.z is angle in ratio (1 <= theta <= -1)
 	msg.angular.z = 0;
 
 	while (ros::ok()) 
 	{
-		CalculateDistance();
-
-		// calculated angular z
-		if (x_dist / abs(x_dist) == -1) { msg.angular.z = -1; }
-		else { msg.angular.z = 1; }
-
-		msg.linear.x = x_dist;
-		msg.linear.y = y_dist;
+		CalculateAngle(); // calculate angular.z
+		msg.angular.z = angle;
 		gps_data_pub.publish(msg);
 		ROS_INFO("\nLinear.x = %f\nLinear.y = %f\nAngular.z = %f\n", msg.linear.x, msg.linear.y, msg.angular.z);
 		ros::spinOnce();
@@ -136,14 +132,31 @@ void CheckWaypointStatus()
 
 
 // Calculates Euclidean distance from position to goal
-void CalculateDistance()
+void CalculateAngle()
 {
-	if (current_waypoint.long_x == 0 || current_waypoint.lat_y == 0) { dist = -1; }
-	else {
-		x_dist = goal_waypoint.long_x - current_waypoint.long_x;
-		y_dist = goal_waypoint.lat_y - current_waypoint.lat_y;
-		dist = sqrt(pow(x_dist, 2.0) + pow(y_dist, 2.0));
+	x_dist = goal_waypoint.long_x - current_waypoint.long_x;
+	y_dist = goal_waypoint.lat_y - current_waypoint.lat_y;
+
+	if (current_waypoint.long_x == 0 || current_waypoint.lat_y == 0) { angle = 0; } 
+	else if (current_waypoint.long_x == goal_waypoint.long_x) {
+		if (y_dist / abs(y_dist) == -1) { angle = 180.00; }
+		else { angle = 0.00; }
 	}
+	else if (current_waypoint.lat_y == goal_waypoint.lat_y) {
+		if (x_dist / abs(x_dist) == -1) { angle = -90.00; }
+		else { angle = 90.00; }
+	}
+	else {
+		angle = atan(abs(x_dist)/abs(y_dist)); 
+		if (x_dist / abs(x_dist) == -1) {
+			if (y_dist / abs(y_dist) == -1) { angle = (-1)*angle - 90.0; }
+			else { angle = (-1)*angle; } 		
+		}
+		else { // if x positive
+			if (y_dist / abs(y_dist) == -1) { angle += 90.0; }
+		}
+	}
+	angle = angle / 180.00;
 }	
 
 
