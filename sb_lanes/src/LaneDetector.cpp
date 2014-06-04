@@ -50,14 +50,15 @@ const int MSG_QUEUE_SIZE = 20;
 int dx = 0;
 int dy = 0;
 double steering = 0;
-double throttle = .25;
+double steeringOut = 0;
+double throttle = 0;
 //---VISION---------------------
 Mat image, image_grey, image_filter, image_thresholded, image_canny, image_blur,
 		image_blur2, image_direction;
 Mat image_H, image_S, image_V, image_histo, image_HThresh, image_SThresh,
 		image_VThresh;
 Mat histogram_H, histogram_S, histogram_V;
-int const threshold_value = 180;
+int const threshold_value = 200;
 int blur_value = 2;
 int const max_BINARY_value = 255;
 // --END VISION -------
@@ -129,7 +130,7 @@ twist.angular.z = 0;
 		if (waitKey(1) == 27)
 			break; // Wait for one ms, break if escape is pressed
  if (dx == 0) dx = 1;
- twist.angular.z = steering;
+ twist.angular.z = steeringOut;
     chatter_pub.publish(twist);
    ROS_INFO("Vision Published: y linear- %f, z angular - %f",twist.linear.y,twist.angular.z);
 
@@ -524,7 +525,7 @@ void getDirection(void) {
 	if(steering==0)cout << "GO STRAIGHT"<< endl;
 
 	//scale steering
-	float steeringOut = steering / 100.0;
+	steeringOut = steering / 100.0;
 
 	confidence = LoL + LoR + RoL + RoR;
 	cout << "Steering = " << steeringOut << endl;
