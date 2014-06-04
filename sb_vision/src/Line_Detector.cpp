@@ -121,6 +121,26 @@ void filterImage(void) {
 	image_direction = image_thresholded.clone();
 	//Canny Edge detection
 	Canny(image_thresholded, image_canny, 50, 200, 3);
+
+	//Testing out hough lines again, however having problems with formatting
+	/*vector<Vec2f> lines;
+		Mat Hough;
+		Mat convert;
+		cv::cvtColor(image_thresholded,convert, COLOR_GRAY2RGB);
+		HoughLines(convert, Hough,1,CV_PI/180,5,0,0);
+		for (size_t i = 0; i < lines.size(); i++) {
+			float rho = lines[i][0], theta = lines[i][1];
+			Point pt1, pt2;
+			double a = cos(theta), b = sin(theta);
+			double x0 = a * rho, y0 = b * rho;
+			pt1.x = cvRound(x0 + 1000 * (-b));
+			pt1.y = cvRound(y0 + 1000 * (a));
+			pt2.x = cvRound(x0 - 1000 * (-b));
+			pt2.y = cvRound(y0 - 1000 * (a));
+			line(Hough, pt1, pt2, Scalar(0, 250, 255), 3, CV_AA);
+		}
+
+	imshow("Hough",Hough);*/
 }
 
 void getDirection(void) {
@@ -144,9 +164,8 @@ void getDirection(void) {
 	for (int i = 0; i < rows2Check; i++) {
 		transitions[i] = countLines(row, 1);
 		row = row - distanceBetweenRows;
-		//cout << "Row: " << i << endl;
-		//cout << "Transitions: " << transitions[i] << endl;
 	}
+
 	row = startRow;
 
 	/* Categorize each transition
@@ -154,19 +173,20 @@ void getDirection(void) {
 	 2. right side of left line
 	 3. left side of right line
 	 4. right side of right line
-	 if only one line is visible it will be placed as a left line for now
 	 */
 
 	for (int i = 0; i < rows2Check; i++) {
+
+		//Initialize variables
 		lastValue = (image_thresholded.at<uchar>(row, 0)) % 2;
 		int left = 0;
 		Point centre;
 
+
 		if (transitions[i] == 0) {
 			cout << "Error: No lines detected" << endl;
-			//TODO: send out message with low confidence levels
 		} else if (transitions[i] > 4) {
-			cout << "Error: More than 2 lines detected" << endl;
+			cout << "Error: More than 2 lines detected" << endl; // consider adjusting thresholding values here
 		} else {
 			for (int f = 0; f < image_thresholded.cols; f++) {
 				currentValue = image_thresholded.at<uchar>(row, f) % 2;
@@ -175,81 +195,81 @@ void getDirection(void) {
 							<< endl;
 					centre.x = f;
 					centre.y = row;
-					cout<<"Point at = "<< centre<<endl;
-					circle(image_direction, centre, 5, CV_RGB(250, 100, 255), 1,
+					cout<<"Point at = "<< centre << endl;
+					circle(image_direction, centre, 20, CV_RGB(250, 100, 255), 1,
 							8, 0);
 					cout << "Current Value: " << currentValue << " Last Value"
 							<< lastValue << endl;
-				}
+
 
 				//Here comes the fun!!!! Value of black is 1 and value of white is 0
 				// 1 transition
 				if (transitions[i] == 1) {
-					if ((lastValue == 0) && (currentValue == 1))
+					if ((lastValue == 1) && (currentValue == 0))
 						points[i][1] = centre;
-					else if ((lastValue == 1) && (currentValue == 0))
+					else if ((lastValue == 0) && (currentValue == 1))
 						points[i][2] = centre;
 					left = 0;
-				} else if (transitions[i] == 2) // this part is still iffy
+				} else if (transitions[i] == 2) // this part right now just checks which side things are on
 						{
 					if (left == 0) {
-						if ((lastValue == 0) && (currentValue == 1))
+						if ((lastValue == 1) && (currentValue == 0))
 							points[i][1] = centre; //RoL
-						else if ((lastValue == 1) && (currentValue == 0))
-							points[i][0] = centre; //LoL
-					     	points[i][2] = centre; //LoR
+						else if ((lastValue == 0) && (currentValue == 1))
+							if(f<=image_thresholded.cols/2) points[i][0] = centre; //LoL
+					     	if (f>image_thresholded.cols/2) points[i][2] = centre; //LoR
 						left = 1;
 					} else if (left == 1) {
-						if ((lastValue == 0) && (currentValue == 1))
+						if ((lastValue == 1) && (currentValue == 0))
 							{
-							points[i][1] = centre; // RoL
-					     	points[i][3] = centre; //LoL
+							if(f<=image_thresholded.cols/2) points[i][1] = centre; // RoL
+							if(f>image_thresholded.cols/2)points[i][3] = centre; //LoL
 							}
-						else if ((lastValue == 1) && (currentValue == 0))
+						else if ((lastValue == 0) && (currentValue == 1))
 							points[i][2] = centre; //LoR
 					}
 				} else if (transitions[i] == 3) {
 					if (left == 0) {
-						if ((lastValue == 0) && (currentValue == 1))
+						if ((lastValue == 1) && (currentValue == 0))
 							points[i][1] = centre; // RoL
-						else if ((lastValue == 1) && (currentValue == 0))
+						else if ((lastValue == 0) && (currentValue == 1))
 							points[i][0] = centre; //LoL
 						left = 1;
 					} else if (left == 1) {
-						if ((lastValue == 0) && (currentValue == 1))
+						if ((lastValue == 1) && (currentValue == 0))
 							points[i][1] = centre; // RoL
-						else if ((lastValue == 1) && (currentValue == 0))
+						else if ((lastValue == 0) && (currentValue == 1))
 							points[i][2] = centre; //LoR
 						left = 2;
 					} else if (left == 2) {
-						if ((lastValue == 0) && (currentValue == 1))
+						if ((lastValue == 1) && (currentValue == 0))
 							points[i][3] = centre; // RoL
-						else if ((lastValue == 1) && (currentValue == 0))
+						else if ((lastValue == 0) && (currentValue == 1))
 							points[i][2] = centre; //LoR
 					}
 				} else if (transitions[i] == 4) {
 					if (left == 0) {
-						if ((lastValue == 1) && (currentValue == 0))
+						if ((lastValue == 0) && (currentValue == 1))
 							points[i][0] = centre; //LoL
 						left = 1;
 					} else if (left == 1) {
-						if ((lastValue == 0) && (currentValue == 1))
+						if ((lastValue == 1) && (currentValue == 0))
 							points[i][1] = centre; // RoL
 						left = 2;
 					} else if (left == 2) {
-						if ((lastValue == 1) && (currentValue == 0))
+						if ((lastValue == 0) && (currentValue == 1))
 							points[i][2] = centre; // RoL
 						left = 3;
 					} else if (left == 3) {
-						if ((lastValue == 0) && (currentValue == 1))
+						if ((lastValue == 1) && (currentValue == 0))
 							points[i][3] = centre; // RoL
 					}
 				}
-
+				}
 				lastValue = currentValue;
 			}
 			drawLine(row);
-			cout<<"Left = " << left << "Row: " << row << endl;
+			//cout<<"Left = " << left << "Row: " << row << endl;
 			row = row - distanceBetweenRows;
 			left = 0;
 		}
@@ -283,12 +303,11 @@ void getDirection(void) {
 		cout <<"xIntercept0 = " << xIntercept0 <<endl;
 
 		if(yIntercept0 != 0){
-		if (xIntercept0 < image_thresholded.cols/3 - 50){
-			cout<<"0 says Turn right" << endl;
-			}
-		if (xIntercept0 > image_thresholded.cols/3 + 50){
-			cout<<"0 says Turn left" << endl;
-				}
+			//Draw Line
+			Point Intercept0 = Point(xIntercept0,0);
+			Point Intercept640 = Point((640-yIntercept0)/slope0,640);
+			line(image_direction, Intercept0, Intercept640, CV_RGB(250, 100, 255), 1, CV_AA);
+
 		}
 	// 1 aka Right of Left
 		float Xdata1[] = {points[0][1].x,1,points[1][1].x,1};
@@ -317,12 +336,10 @@ void getDirection(void) {
 			cout <<"xIntercept1 = " << xIntercept1 <<endl;
 
 			if (yIntercept1 != 0){
-			if (xIntercept1 < image_thresholded.cols/3 - 50){
-				cout<<"1 says Turn right" << endl;
-				}
-			if (xIntercept1 > image_thresholded.cols/3 + 50){
-				cout<<"1 says Turn left" << endl;
-					}
+				//Draw Line
+				Point Intercept0 = Point(xIntercept1,0);
+				Point Intercept640 = Point((640-yIntercept1)/slope1,640);
+				line(image_direction, Intercept0, Intercept640, CV_RGB(250, 100, 255), 1, CV_AA);
 			}
 
 	// 2 aka Left of Right
@@ -352,12 +369,11 @@ void getDirection(void) {
 				cout <<"xIntercept2 = " << xIntercept2 <<endl;
 
 				if (yIntercept2 != 0){
-				if (xIntercept2 < 2*image_thresholded.cols/3 - 50){
-					cout<<"2 says Turn right" << endl;
-					}
-				if (xIntercept2 > 2*image_thresholded.cols/3 + 50){
-					cout<<"2 says Turn left" << endl;
-						}
+
+					//Draw Line
+					Point Intercept0 = Point(xIntercept2,0);
+					Point Intercept640 = Point((640-yIntercept2)/slope2, 640);
+					line(image_direction, Intercept0, Intercept640, CV_RGB(250, 100, 255), 1, CV_AA);
 				}
 
 				float Xdata3[] = {points[0][3].x,1,points[1][3].x,1};
@@ -386,12 +402,11 @@ void getDirection(void) {
 					cout <<"xIntercept3 = " << xIntercept3 <<endl;
 
 					if (yIntercept3 != 0){
-					if (xIntercept3 < 2*image_thresholded.cols/3 - 50){
-						cout<<"3 says Turn right" << endl;
-						}
-					if (xIntercept3 > 2*image_thresholded.cols/3 + 50){
-						cout<<"3 says Turn left" << endl;
-							}
+						//Draw Line
+						Point Intercept0 = Point(xIntercept3,0);
+						Point Intercept640 = Point((640-yIntercept3)/slope3,640);
+						line(image_direction, Intercept0, Intercept640, CV_RGB(250, 100, 255), 1, CV_AA);
+
 					}
 
 					// Crikey!
