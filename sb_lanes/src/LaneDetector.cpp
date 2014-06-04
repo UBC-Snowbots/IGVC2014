@@ -49,8 +49,8 @@ static const string PUBLISH_TOPIC = "vision_vel";
 const int MSG_QUEUE_SIZE = 20;
 int dx = 0;
 int dy = 0;
-double steering = 1;
-double throttle = 2;
+double steering = 0;
+double throttle = .25;
 //---VISION---------------------
 Mat image, image_grey, image_filter, image_thresholded, image_canny, image_blur,
 		image_blur2, image_direction;
@@ -74,7 +74,7 @@ int main(int argc, char **argv)
   int count = 0;
   geometry_msgs::Twist twist;
 twist.linear.x = 0;
-twist.linear.y = 0.25;
+twist.linear.y = 0.1;
 twist.linear.z = 0;
 twist.angular.x = 0;
 twist.angular.y = 0;
@@ -118,9 +118,9 @@ twist.angular.z = 0;
 
 		filterImage();
 
-		detectLines();
+		//detectLines();
 
-		//getDirection();
+		getDirection();
 
 		displayWindows();
 
@@ -129,7 +129,7 @@ twist.angular.z = 0;
 		if (waitKey(1) == 27)
 			break; // Wait for one ms, break if escape is pressed
  if (dx == 0) dx = 1;
- twist.angular.z = atan(dy*1.0/dx);
+ twist.angular.z = steering;
     chatter_pub.publish(twist);
    ROS_INFO("Vision Published: y linear- %f, z angular - %f",twist.linear.y,twist.angular.z);
 
@@ -176,16 +176,18 @@ void filterImage(void) {
 
 void getDirection(void) {
 
-	int rows2Check = 2;
+	int rows2Check = 4;
 	int distanceBetweenRows = image.rows / 10;
 	int const startRow = image.rows / 2 + distanceBetweenRows; //TODO: adjust for camera angle
 	int row = startRow;
 
-	Point points[4][rows2Check];
-	int transitions[2];
+	Point points[rows2Check][4];
+	int transitions[rows2Check];
 
 	int lastValue = (image_thresholded.at<uchar>(row, 0)) % 2;
 	int currentValue = 0;
+
+	int state = 1; // 0 we are out to the left, 1 we are inside the lines, 2 we are to the right of the lines
 
 	image_direction = image_thresholded.clone();
 
@@ -193,9 +195,8 @@ void getDirection(void) {
 	for (int i = 0; i < rows2Check; i++) {
 		transitions[i] = countLines(row, 1);
 		row = row - distanceBetweenRows;
-		//cout << "Row: " << i << endl;
-		//cout << "Transitions: " << transitions[i] << endl;
 	}
+	//cout << "Transitions"<<transitions <<endl;
 	row = startRow;
 
 	/* Categorize each transition
@@ -203,100 +204,335 @@ void getDirection(void) {
 	 2. right side of left line
 	 3. left side of right line
 	 4. right side of right line
-	 if only one line is visible it will be placed as a left line for now
 	 */
 
 	for (int i = 0; i < rows2Check; i++) {
+
+		//Initialize variables
 		lastValue = (image_thresholded.at<uchar>(row, 0)) % 2;
-		int transitionCount = 0;
 		int left = 0;
 		Point centre;
 
+
 		if (transitions[i] == 0) {
-			cout << "Error: No lines detected" << endl;
-			//TODO: send out message with low confidence levels
+			cout << "Error: No lines detected at row" << i <<endl;
 		} else if (transitions[i] > 4) {
-			cout << "Error: More than 2 lines detected" << endl;
+			cout << "Error: More than 2 lines detected at row" << i << endl; // consider adjusting thresholding values here
 		} else {
 			for (int f = 0; f < image_thresholded.cols; f++) {
+
 				currentValue = image_thresholded.at<uchar>(row, f) % 2;
 				if (currentValue != lastValue) {
-					cout << "Transition at x = " << f << ", y = " << row
-							<< endl;
+					//cout << "Transition at x = " << f << ", y = " << row	<< endl;
 					centre.x = f;
 					centre.y = row;
-					circle(image_direction, centre, 5, CV_RGB(250, 100, 255), 1,8, 0);
-					cout << "Current Value: " << currentValue << " Last Value"
-							<< lastValue << endl;
-				}
-				//Here comes the fun!!!! Value of black is 1 and value of white is 0
-				// 1 transition
-				if (transitions[i] == 1) {
-					if ((lastValue == 0) && (currentValue == 1))
-						points[1][i] = centre;
-					else if ((lastValue == 1) && (currentValue == 0))
-						points[2][i] = centre;
-				} else if (transitions[i] == 2) // this part is still iffy
-						{
-					if (left == 0) {
-						if ((lastValue == 0) && (currentValue == 1))
-							points[1][i] = centre; //RoL
-						else if ((lastValue == 1) && (currentValue == 0))
-							points[0][i] = centre; //LoL
-						left = 1;
-					} else if (left == 1) {
-						if ((lastValue == 0) && (currentValue == 1))
-							points[1][i] = centre; // RoL
-						else if ((lastValue == 1) && (currentValue == 0))
-							points[2][i] = centre; //LoR
-					}
-				} else if (transitions[i] == 3) {
-					if (left == 0) {
-						if ((lastValue == 0) && (currentValue == 1))
-							points[1][i] = centre; // RoL
-						else if ((lastValue == 1) && (currentValue == 0))
-							points[0][i] = centre; //LoL
-						left = 1;
-					} else if (left == 1) {
-						if ((lastValue == 0) && (currentValue == 1))
-							points[1][i] = centre; // RoL
-						else if ((lastValue == 1) && (currentValue == 0))
-							points[2][i] = centre; //LoR
-						left = 2;
-					} else if (left == 2) {
-						if ((lastValue == 0) && (currentValue == 1))
-							points[3][i] = centre; // RoL
-						else if ((lastValue == 1) && (currentValue == 0))
-							points[2][i] = centre; //LoR
-					}
-				} else if (transitions[i] == 4) {
+					//cout << "Point at = " << centre << endl;
+
+					circle(image_direction, centre, 20, CV_RGB(250, 100, 255),
+							1, 8, 0);
+					//cout << "Current Value: " << currentValue << " Last Value"
+					//		<< lastValue << endl;
+
+					//Here comes the fun!!!! Value of black is 1 and value of white is 0
+					// 1 transition
+					if (transitions[i] == 1) {
+						if ((lastValue == 1) && (currentValue == 0))
+							points[i][1] = centre;
+						else if ((lastValue == 0) && (currentValue == 1))
+							points[i][2] = centre;
+						left = 0;
+					} else if (transitions[i] == 2) // this part right now just checks which side things are on
+							{
 						if (left == 0) {
 							if ((lastValue == 1) && (currentValue == 0))
-								points[0][i] = centre; //LoL
+								points[i][1] = centre; //RoL
+							else if ((lastValue == 0) && (currentValue == 1))
+								if (f <= image_thresholded.cols / 2)
+									points[i][0] = centre; //LoL
+							if (f > image_thresholded.cols / 2)
+								points[i][2] = centre; //LoR
 							left = 1;
 						} else if (left == 1) {
-							if ((lastValue == 0) && (currentValue == 1))
-								points[1][i] = centre; // RoL
+							if ((lastValue == 1) && (currentValue == 0)) {
+								if (f <= image_thresholded.cols / 2)
+									points[i][1] = centre; // RoL
+								if (f > image_thresholded.cols / 2)
+									points[i][3] = centre; //LoL
+							} else if ((lastValue == 0) && (currentValue == 1))
+								points[i][2] = centre; //LoR
+						}
+					} else if (transitions[i] == 3) {
+						if (left == 0) {
+							if ((lastValue == 1) && (currentValue == 0))
+								points[i][1] = centre; // RoL
+							else if ((lastValue == 0) && (currentValue == 1))
+								points[i][0] = centre; //LoL
+							left = 1;
+						} else if (left == 1) {
+							if ((lastValue == 1) && (currentValue == 0))
+								points[i][1] = centre; // RoL
+							else if ((lastValue == 0) && (currentValue == 1))
+								points[i][2] = centre; //LoR
 							left = 2;
 						} else if (left == 2) {
 							if ((lastValue == 1) && (currentValue == 0))
-								points[2][i] = centre; // RoL
+								points[i][3] = centre; // RoL
+							else if ((lastValue == 0) && (currentValue == 1))
+								points[i][2] = centre; //LoR
+						}
+					} else if (transitions[i] == 4) {
+						if (left == 0) {
+							if ((lastValue == 0) && (currentValue == 1))
+								points[i][0] = centre; //LoL
+							left = 1;
+						} else if (left == 1) {
+							if ((lastValue == 1) && (currentValue == 0))
+								points[i][1] = centre; // RoL
+							left = 2;
+						} else if (left == 2) {
+							if ((lastValue == 0) && (currentValue == 1))
+								points[i][2] = centre; // RoL
 							left = 3;
 						} else if (left == 3) {
-							if ((lastValue == 0) && (currentValue == 1))
-								points[3][i] = centre; // RoL
+							if ((lastValue == 1) && (currentValue == 0))
+								points[i][3] = centre; // RoL
 						}
 					}
-
-					lastValue = currentValue;
 				}
-				drawLine(row);
-				row = row - distanceBetweenRows;
+				lastValue = currentValue;
 			}
+
+			//cout<<"Left = " << left << "Row: " << row << endl;
+
 		}
-		// Ok, now we have the matrix lets do some calculatin'
+		drawLine(row);
+		row = row - distanceBetweenRows;
+					left = 0;
 	}
 
+	//SUPER GHETTO STUFFS
+	// 0 aka Left of Left -----------------------------
+	float Xdata0[] = { points[0][0].x, 1, points[1][0].x, 1, points[2][0].x, 1,points[3][0].x, 1 };
+	Mat X0 = Mat(rows2Check, 2, CV_32F, Xdata0).clone();
+
+	float Ydata0[] = { points[0][0].y, points[1][0].y, points[2][0].y , points[3][0].y };
+	Mat Y0 = Mat(rows2Check, 1, CV_32F, Ydata0).clone();
+
+	Mat B0 = Y0.clone();
+
+	//want to stream line this by putting points directly into Mat, but for now just going to get something that works
+
+	solve(X0, Y0, B0, DECOMP_QR);
+	cout << "X0 = " << endl << X0 << endl;
+	cout << "Y0 = " << endl << Y0 << endl;
+	cout << "B0 = " << endl << B0 << endl;
+
+	// Next we need to calculate how much we want to shift by: using the line equation obtained in matrix B we can calculate the
+	// y-intercept
+	float slope0 = B0.at<float>(0, 0);
+	float yIntercept0 = B0.at<float>(1, 0);
+	cout << "slope0 = " << slope0 << endl;
+	cout << "yIntercept0 = " << yIntercept0 << endl;
+
+	float xIntercept0 = -yIntercept0 / slope0;
+	cout << "xIntercept0 = " << xIntercept0 << endl;
+
+	if (yIntercept0 != 0) {
+		//Draw Line
+		Point Intercept0 = Point(xIntercept0, 0);
+		Point Intercept640 = Point((640 - yIntercept0) / slope0, 640);
+		line(image_direction, Intercept0, Intercept640, CV_RGB(250, 100, 255),
+				1, CV_AA);
+
+	}
+	// 1 aka Right of Left
+	float Xdata1[] = { points[0][1].x, 1, points[1][1].x, 1,points[2][1].x, 1,points[3][1].x, 1 };
+	Mat X1 = Mat(rows2Check, 2, CV_32F, Xdata1).clone();
+
+	float Ydata1[] = { points[0][1].y, points[1][1].y, points[2][1].y, points[3][1].y };
+	Mat Y1 = Mat(rows2Check, 1, CV_32F, Ydata1).clone();
+
+	Mat B1 = Y1.clone();
+
+	//want to stream line this by putting points directly into Mat, but for now just going to get something that works
+
+	solve(X1, Y1, B1, DECOMP_QR);
+	cout << "X1 = " << endl << X1 << endl;
+	cout << "Y1 = " << endl << Y1 << endl;
+	cout << "B1 = " << endl << B1 << endl;
+
+	// Next we need to calculate how much we want to shift by: using the line equation obtained in matrix B we can calculate the
+	// y-intercept
+	float slope1 = B1.at<float>(0, 0);
+	float yIntercept1 = B1.at<float>(1, 0);
+	cout << "slope1 = " << slope1 << endl;
+	cout << "yIntercept1 = " << yIntercept1 << endl;
+
+	float xIntercept1 = -yIntercept1 / slope1;
+	cout << "xIntercept1 = " << xIntercept1 << endl;
+
+	if (yIntercept1 != 0) {
+		//Draw Line
+		Point Intercept0 = Point(xIntercept1, 0);
+		Point Intercept640 = Point((640 - yIntercept1) / slope1, 640);
+		line(image_direction, Intercept0, Intercept640, CV_RGB(250, 100, 255),
+				1, CV_AA);
+	}
+
+	// 2 aka Left of Right
+	float Xdata2[] = { points[0][2].x, 1, points[1][2].x, 1, points[2][2].x, 1 ,points[3][2].x, 1 };
+	Mat X2 = Mat(rows2Check, 2, CV_32F, Xdata2).clone();
+
+	float Ydata2[] = { points[0][2].y, points[1][2].y , points[2][2].y, points[3][2].y  };
+	Mat Y2 = Mat(rows2Check, 1, CV_32F, Ydata2).clone();
+
+	Mat B2 = Y2.clone();
+
+	//want to stream line this by putting points directly into Mat, but for now just going to get something that works
+
+	solve(X2, Y2, B2, DECOMP_QR);
+	cout << "X2 = " << endl << X2 << endl;
+	cout << "Y2 = " << endl << Y2 << endl;
+	cout << "B2 = " << endl << B2 << endl;
+
+	// Next we need to calculate how much we want to shift by: using the line equation obtained in matrix B we can calculate the
+	// y-intercept
+	float slope2 = B2.at<float>(0, 0);
+	float yIntercept2 = B2.at<float>(1, 0);
+	cout << "slope2 = " << slope2 << endl;
+	cout << "yIntercept2 = " << yIntercept2 << endl;
+
+	float xIntercept2 = -yIntercept2 / slope2;
+	cout << "xIntercept2 = " << xIntercept2 << endl;
+
+	if (yIntercept2 != 0) {
+
+		//Draw Line
+		Point Intercept0 = Point(xIntercept2, 0);
+		Point Intercept640 = Point((640 - yIntercept2) / slope2, 640);
+		line(image_direction, Intercept0, Intercept640, CV_RGB(250, 100, 255),
+				1, CV_AA);
+	}
+
+	float Xdata3[] = { points[0][3].x, 1, points[1][3].x, 1, points[2][3].x, 1, points[3][3].x, 1 };
+	Mat X3 = Mat(rows2Check, 2, CV_32F, Xdata3).clone();
+
+	float Ydata3[] = { points[0][3].y, points[1][3].y , points[2][3].y,points[3][3].y };
+	Mat Y3 = Mat(rows2Check, 1, CV_32F, Ydata3).clone();
+
+	Mat B3 = Y3.clone();
+
+	//want to stream line this by putting points directly into Mat, but for now just going to get something that works
+
+	solve(X3, Y3, B3, DECOMP_QR);
+	cout << "X3 = " << endl << X3 << endl;
+	cout << "Y3 = " << endl << Y3 << endl;
+	cout << "B3 = " << endl << B3 << endl;
+
+	// Next we need to calculate how much we want to shift by: using the line equation obtained in matrix B we can calculate the
+	// y-intercept
+	float slope3 = B3.at<float>(0, 0);
+	float yIntercept3 = B3.at<float>(1, 0);
+	cout << "slope3 = " << slope3 << endl;
+	cout << "yIntercept3 = " << yIntercept3 << endl;
+
+	float xIntercept3 = -yIntercept3 / slope3;
+	cout << "xIntercept3 = " << xIntercept3 << endl;
+
+	if (yIntercept3 != 0) {
+		//Draw Line
+		Point Intercept0 = Point(xIntercept3, 0);
+		Point Intercept640 = Point((640 - yIntercept3) / slope3, 640);
+		line(image_direction, Intercept0, Intercept640, CV_RGB(250, 100, 255),
+				1, CV_AA);
+
+	}
+
+	// Crikey!
+	bool LoL = (yIntercept0 < 0);
+	bool RoL = (yIntercept1 < 0);
+	bool LoR = (yIntercept2 < 0);
+	bool RoR = (yIntercept3 < 0);
+
+
+	float confidence = 0.1;
+	int minDist = 300; //TODO: adjust this for optimum line following
+	int maxDist = 500;
+
+	int steeringIncrement = 10;
+
+	if (LoL) {
+		if (((640 - yIntercept0) / slope0) >= (image.cols / 2 - minDist)) {
+			steering = steering - steeringIncrement;
+		}
+		else if ((640 - yIntercept0) / slope0< (image.cols / 2 - maxDist)) {
+			steering = steering + steeringIncrement;
+			;
+		} else {
+			if (steering > 0)
+				steering = steering - steeringIncrement;
+			if (steering < 0)
+				steering = steering + steeringIncrement;
+		}
+
+	} else if (RoL) {
+		if ((640 - yIntercept1) / slope1 >= (image.cols / 2 - minDist)) {
+			steering = steering - steeringIncrement;
+		}
+		else if ((640 - yIntercept1) / slope1 < (image.cols / 2 - maxDist)) {
+			steering = steering + steeringIncrement;
+
+		} else {
+			if (steering > 0)
+				steering = steering - steeringIncrement;
+			if (steering < 0)
+				steering = steering + steeringIncrement;
+		}
+	} else if (LoR) {
+		if ((640 - yIntercept2) / slope2 <= (image.cols / 2 + minDist)) {
+			steering = steering + steeringIncrement;
+		}
+		if ((640 - yIntercept2) / slope2 > (image.cols / 2 + maxDist)) {
+			steering = steering - steeringIncrement;
+			;
+		} else {
+			if (steering > 0)
+				steering = steering - steeringIncrement;
+			if (steering < 0)
+				steering = steering + steeringIncrement;
+		}
+	} else if (RoR) {
+		if ((640 - yIntercept3) / slope3 <= (image.cols / 2 + minDist)) {
+			steering = steering - steeringIncrement;
+		}
+		if ((640 - yIntercept3) / slope3 > (image.cols / 2 + maxDist)) {
+			steering = steering + steeringIncrement;
+
+		} else {
+			if (steering > 0)
+				steering = steering - steeringIncrement;
+			if (steering < 0)
+				steering = steering + steeringIncrement;
+		}
+	}
+	if (steering > 100)
+		steering = 100;
+	if (steering < -100)
+		steering = -100;
+	if(steering<0)cout << "GO RIGHT"<< endl;
+	if(steering > 0)cout << "GO LEFT"<< endl;
+	if(steering==0)cout << "GO STRAIGHT"<< endl;
+
+	//scale steering
+	float steeringOut = steering / 100.0;
+
+	confidence = LoL + LoR + RoL + RoR;
+	cout << "Steering = " << steeringOut << endl;
+	cout << "Confidence = " << confidence << endl;
+	cout << "Cols" << image_thresholded.cols << endl;
+	cout << "Rows" << image_thresholded.rows << endl;
+
+}
 
 	/*
 	 float(calculateDirection){
