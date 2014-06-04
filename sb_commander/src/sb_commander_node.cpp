@@ -3,7 +3,8 @@
  * Intelligent Ground Vehicle Challenge 2014
  * Oakland University - Rochester, Michigan
  * 
- * UBC Snowbots
+ * Team UBC Snowbots
+ * University of British Columbia - Vancouver, BC
  *
  */
 
@@ -19,7 +20,7 @@
 #include <sensor_msgs/LaserScan.h>
 
 #include "sb_msgs/CarCommand.h"
-#include <sb_msgs/LidarNav.h>
+#include "sb_msgs/LidarNav.h"
 
 // Global Constants
 static const int SECOND = 1000000; //1 million us
@@ -30,16 +31,25 @@ geometry_msgs::Twist twistConvertor(sb_msgs::CarCommand car_msg);
 using namespace ros;
 using namespace std;
 
+struct NavCommand
+{
+    NavCommand() : throttle(0), steering(0) {}
+    double throttle;
+    double steering;
+};
+
 // ROS-related Constants
-static const string NODE_NAME          			= "commander";
-static const string CAR_PUBLISH_TOPIC				= "cmd_vel";
-static const string LIDAR_SUBSCRIBE_TOPIC  	= "lidar_nav";  // lidar_nav node suggestion
-static const string VISION_SUBSCRIBE_TOPIC	= "vision_nav"; // vision_nav node suggestion
-static const string GPS_SUBSCRIBE_TOPIC		= "gps_nav"; // jen
+static const string NODE_NAME               = "commander";
+static const string CAR_PUBLISH_TOPIC       = "cmd_vel";
+static const string LIDAR_SUBSCRIBE_TOPIC   = "lidar_nav";  // lidar_nav node suggestion
+static const string VISION_SUBSCRIBE_TOPIC  = "vision_nav"; // vision_nav node suggestion
+static const string GPS_SUBSCRIBE_TOPIC     = "gps_nav";    // gps_nav node
 static const int LOOP_FREQ = 30; // Hz
 
-double my_data[550];
-int my_count = 0;
+NavCommand lidar_command;
+NavCommand vision_command;
+NavCommand gps_command;
+
 double throttle = 0;
 double steering = 0; // 1 is right, 30 shown on arduino driver (real world), -1 is left
 
@@ -52,34 +62,39 @@ void Stop()
 	steering = 0;		
 }
 
-void vision_callback(const std_msgs::Float64ConstPtr& float64Msg)
+//callback for vision directions
+void vision_callback(const geometry_msgs::Twist::ConstPtr& msg)
 {
-  double confidence;
-  confidence = float64Msg->data;
-  cout << "the confidence is: "<<confidence << endl;
+  vision_command.throttle = msg->linear.y;
+  vision_command.steering = msg->angular.z;
 }
 
 
-//call back for lidar directions
-void ir_state_callback(const sensor_msgs::LaserScanConstPtr& msg_ptr)
+//callback for lidar directions
+void lidar_state_callback(const geometry_msgs::Twist::ConstPtr& msg)
 {
-   
+  lidar_command.throttle = msg->linear.y;
+  lidar_command.steering = msg->angular.z;   
 }
 
-// jen
+//callback for gps directions
 void gps_callback(const geometry_msgs::Twist::ConstPtr& msg) 
 {
 	ROS_INFO("\nGot back: [Lin.x = %f, Lin.y = %f, Ang.z = %f]", msg->linear.x, msg->linear.y, msg->angular.z);
+	gps_command.throttle = msg->linear.y;
+  gps_command.steering = msg->angular.z;
 }
 
 
-sb_msgs::CarCommand driver()
+geometry_msgs::Twist driver()
 {
-    sb_msgs::CarCommand car_msg;
+    geometry_msgs::Twist car_msg;
 
+        
+    
     //uncomment the two lines below and populate car_msg with data 
-    car_msg.throttle = throttle; //Throtle;
-    car_msg.steering = steering;//Steering;
+    car_msg.linear.y  = throttle;	//Throtle;
+    car_msg.angular.z = steering;	//Steering;
      
     // geometry_msgs::Twist twist_msg = twistConvertor(car_msg);
 
@@ -97,19 +112,18 @@ int main( int argc, char** argv )
     //subscribes to IR topic to receive data from arduino
     //lidar_class my_lidar_class;
 
-    ros::Subscriber IR_state = n.subscribe(LIDAR_SUBSCRIBE_TOPIC, 20, ir_state_callback);
-  //  ros::Subscriber Lidar_instructions = n.subscribe(LIDAR_SUBSCRIBE_TOPIC, 3, &lidar_class::callback,&my_lidar_class);
-    ros::Subscriber Vision = n.subscribe(VISION_SUBSCRIBE_TOPIC, 20, vision_callback);
-    ros::Subscriber GPS = n.subscribe(GPS_SUBSCRIBE_TOPIC, 20, gps_callback); // jen
+    ros::Subscriber LIDAR_State = n.subscribe(LIDAR_SUBSCRIBE_TOPIC, 20, lidar_state_callback);
+    ros::Subscriber vision_State = n.subscribe(VISION_SUBSCRIBE_TOPIC, 20, vision_callback);
+    ros::Subscriber GPS_State = n.subscribe(GPS_SUBSCRIBE_TOPIC, 20, gps_callback);
 
     ros::Publisher car_pub = n.advertise<geometry_msgs::Twist>(CAR_PUBLISH_TOPIC, 1);
-	
-		
 
     //controls how fast it goes
     ros::Rate loop_rate(LOOP_FREQ);
 
     ROS_INFO("ready to go");
+    
+    //give it 3 seconds before it starts moving!
     usleep(3*SECOND);
        
     ROS_INFO("going");   
@@ -122,11 +136,8 @@ int main( int argc, char** argv )
         //publshing data to robot
        // ROS_INFO("sending throttle=%f, steering=%f", twist_msg.linear.x, twist_msg.angular.z);
 
-	//sb_msgs::CarCommand car_msg = my_lidar_class.get_car_msg();
-	sb_msgs::CarCommand car_msg = driver();
-        geometry_msgs::Twist twist_msg = twistConvertor(car_msg);
-        car_pub.publish(twist_msg);
-        
+	      geometry_msgs::Twist car_msg = driver();
+        car_pub.publish(car_msg);
         
         //checking callbacks and sleeping to match loop rate
         ros::spinOnce();
@@ -137,6 +148,7 @@ int main( int argc, char** argv )
     return 0;
 }
 
+/*
 geometry_msgs::Twist twistConvertor(sb_msgs::CarCommand car_msg)
 {
       //Creating instances of Twist and Vector3 classes	
@@ -161,3 +173,4 @@ geometry_msgs::Twist twistConvertor(sb_msgs::CarCommand car_msg)
 
       return twistReturn;
 }
+*/
