@@ -176,9 +176,10 @@ void filterImage(void) {
 
 void getDirection(void) {
 
-	int rows2Check = 4;
-	int distanceBetweenRows = image.rows / 10;
-	int const startRow = image.rows / 2 + distanceBetweenRows; //TODO: adjust for camera angle
+	int rows2Check = 14;
+	int minConstraint = 8; // need this many, or more point to define a line
+	int distanceBetweenRows = image.rows / 20;
+	int const startRow = image.rows / 2 + distanceBetweenRows*7; //TODO: adjust for camera angle
 	int row = startRow;
 
 	Point points[rows2Check][4];
@@ -213,9 +214,8 @@ void getDirection(void) {
 		int left = 0;
 		Point centre;
 
-
 		if (transitions[i] == 0) {
-			cout << "Error: No lines detected at row" << i <<endl;
+			cout << "Error: No lines detected at row" << i << endl;
 		} else if (transitions[i] > 4) {
 			cout << "Error: More than 2 lines detected at row" << i << endl; // consider adjusting thresholding values here
 		} else {
@@ -233,7 +233,8 @@ void getDirection(void) {
 					//cout << "Current Value: " << currentValue << " Last Value"
 					//		<< lastValue << endl;
 
-					//Here comes the fun!!!! Value of black is 1 and value of white is 0
+					//Here comes the fun!!!! Value of black is 1 and value of white is 0...
+					// This parts is pretty nasty, but works quite beautifully!
 					// 1 transition
 					if (transitions[i] == 1) {
 						if ((lastValue == 1) && (currentValue == 0))
@@ -307,232 +308,285 @@ void getDirection(void) {
 		}
 		drawLine(row);
 		row = row - distanceBetweenRows;
-					left = 0;
+		left = 0;
 	}
 
 	//SUPER GHETTO STUFFS
+	float slope0 = 0;
+	float slope1 = 0;
+	float slope2 = 0;
+	float slope3 = 0;
+	float yIntercept0 = 0;
+	float yIntercept1 = 0;
+	float yIntercept2 = 0;
+	float yIntercept3 = 0;
+
+
 	// 0 aka Left of Left -----------------------------
-	float Xdata0[] = { points[0][0].x, 1, points[1][0].x, 1, points[2][0].x, 1,points[3][0].x, 1 };
-	Mat X0 = Mat(rows2Check, 2, CV_32F, Xdata0).clone();
 
-	float Ydata0[] = { points[0][0].y, points[1][0].y, points[2][0].y , points[3][0].y };
-	Mat Y0 = Mat(rows2Check, 1, CV_32F, Ydata0).clone();
+	Mat Xchecked0;
+	Mat Ychecked0;
+	Mat Bchecked0;
+	int X0Count = 0;
+	Bchecked0 = Mat::ones(2, 1, CV_32F);
 
-	Mat B0 = Y0.clone();
-
-	//want to stream line this by putting points directly into Mat, but for now just going to get something that works
-
-	solve(X0, Y0, B0, DECOMP_QR);
-	cout << "X0 = " << endl << X0 << endl;
-	cout << "Y0 = " << endl << Y0 << endl;
-	cout << "B0 = " << endl << B0 << endl;
-
-	// Next we need to calculate how much we want to shift by: using the line equation obtained in matrix B we can calculate the
-	// y-intercept
-	float slope0 = B0.at<float>(0, 0);
-	float yIntercept0 = B0.at<float>(1, 0);
-	cout << "slope0 = " << slope0 << endl;
-	cout << "yIntercept0 = " << yIntercept0 << endl;
-
-	float xIntercept0 = -yIntercept0 / slope0;
-	cout << "xIntercept0 = " << xIntercept0 << endl;
-
-	if (yIntercept0 != 0) {
-		//Draw Line
-		Point Intercept0 = Point(xIntercept0, 0);
-		Point Intercept640 = Point((640 - yIntercept0) / slope0, 640);
-		line(image_direction, Intercept0, Intercept640, CV_RGB(250, 100, 255),
-				1, CV_AA);
-
-	}
-	// 1 aka Right of Left
-	float Xdata1[] = { points[0][1].x, 1, points[1][1].x, 1,points[2][1].x, 1,points[3][1].x, 1 };
-	Mat X1 = Mat(rows2Check, 2, CV_32F, Xdata1).clone();
-
-	float Ydata1[] = { points[0][1].y, points[1][1].y, points[2][1].y, points[3][1].y };
-	Mat Y1 = Mat(rows2Check, 1, CV_32F, Ydata1).clone();
-
-	Mat B1 = Y1.clone();
-
-	//want to stream line this by putting points directly into Mat, but for now just going to get something that works
-
-	solve(X1, Y1, B1, DECOMP_QR);
-	cout << "X1 = " << endl << X1 << endl;
-	cout << "Y1 = " << endl << Y1 << endl;
-	cout << "B1 = " << endl << B1 << endl;
-
-	// Next we need to calculate how much we want to shift by: using the line equation obtained in matrix B we can calculate the
-	// y-intercept
-	float slope1 = B1.at<float>(0, 0);
-	float yIntercept1 = B1.at<float>(1, 0);
-	cout << "slope1 = " << slope1 << endl;
-	cout << "yIntercept1 = " << yIntercept1 << endl;
-
-	float xIntercept1 = -yIntercept1 / slope1;
-	cout << "xIntercept1 = " << xIntercept1 << endl;
-
-	if (yIntercept1 != 0) {
-		//Draw Line
-		Point Intercept0 = Point(xIntercept1, 0);
-		Point Intercept640 = Point((640 - yIntercept1) / slope1, 640);
-		line(image_direction, Intercept0, Intercept640, CV_RGB(250, 100, 255),
-				1, CV_AA);
-	}
-
-	// 2 aka Left of Right
-	float Xdata2[] = { points[0][2].x, 1, points[1][2].x, 1, points[2][2].x, 1 ,points[3][2].x, 1 };
-	Mat X2 = Mat(rows2Check, 2, CV_32F, Xdata2).clone();
-
-	float Ydata2[] = { points[0][2].y, points[1][2].y , points[2][2].y, points[3][2].y  };
-	Mat Y2 = Mat(rows2Check, 1, CV_32F, Ydata2).clone();
-
-	Mat B2 = Y2.clone();
-
-	//want to stream line this by putting points directly into Mat, but for now just going to get something that works
-
-	solve(X2, Y2, B2, DECOMP_QR);
-	cout << "X2 = " << endl << X2 << endl;
-	cout << "Y2 = " << endl << Y2 << endl;
-	cout << "B2 = " << endl << B2 << endl;
-
-	// Next we need to calculate how much we want to shift by: using the line equation obtained in matrix B we can calculate the
-	// y-intercept
-	float slope2 = B2.at<float>(0, 0);
-	float yIntercept2 = B2.at<float>(1, 0);
-	cout << "slope2 = " << slope2 << endl;
-	cout << "yIntercept2 = " << yIntercept2 << endl;
-
-	float xIntercept2 = -yIntercept2 / slope2;
-	cout << "xIntercept2 = " << xIntercept2 << endl;
-
-	if (yIntercept2 != 0) {
-
-		//Draw Line
-		Point Intercept0 = Point(xIntercept2, 0);
-		Point Intercept640 = Point((640 - yIntercept2) / slope2, 640);
-		line(image_direction, Intercept0, Intercept640, CV_RGB(250, 100, 255),
-				1, CV_AA);
-	}
-
-	float Xdata3[] = { points[0][3].x, 1, points[1][3].x, 1, points[2][3].x, 1, points[3][3].x, 1 };
-	Mat X3 = Mat(rows2Check, 2, CV_32F, Xdata3).clone();
-
-	float Ydata3[] = { points[0][3].y, points[1][3].y , points[2][3].y,points[3][3].y };
-	Mat Y3 = Mat(rows2Check, 1, CV_32F, Ydata3).clone();
-
-	Mat B3 = Y3.clone();
-
-	//want to stream line this by putting points directly into Mat, but for now just going to get something that works
-
-	solve(X3, Y3, B3, DECOMP_QR);
-	cout << "X3 = " << endl << X3 << endl;
-	cout << "Y3 = " << endl << Y3 << endl;
-	cout << "B3 = " << endl << B3 << endl;
-
-	// Next we need to calculate how much we want to shift by: using the line equation obtained in matrix B we can calculate the
-	// y-intercept
-	float slope3 = B3.at<float>(0, 0);
-	float yIntercept3 = B3.at<float>(1, 0);
-	cout << "slope3 = " << slope3 << endl;
-	cout << "yIntercept3 = " << yIntercept3 << endl;
-
-	float xIntercept3 = -yIntercept3 / slope3;
-	cout << "xIntercept3 = " << xIntercept3 << endl;
-
-	if (yIntercept3 != 0) {
-		//Draw Line
-		Point Intercept0 = Point(xIntercept3, 0);
-		Point Intercept640 = Point((640 - yIntercept3) / slope3, 640);
-		line(image_direction, Intercept0, Intercept640, CV_RGB(250, 100, 255),
-				1, CV_AA);
-
-	}
-
-	// Crikey!
-	bool LoL = (yIntercept0 < 0);
-	bool RoL = (yIntercept1 < 0);
-	bool LoR = (yIntercept2 < 0);
-	bool RoR = (yIntercept3 < 0);
-
-
-	float confidence = 0.1;
-	int minDist = 300; //TODO: adjust this for optimum line following
-	int maxDist = 500;
-
-	int steeringIncrement = 10;
-
-	if (LoL) {
-		if (((640 - yIntercept0) / slope0) >= (image.cols / 2 - minDist)) {
-			steering = steering - steeringIncrement;
+	for (int i = 0; i < rows2Check; ++i) {
+		if (points[i][0].x > 0) {
+			float Xrow[] = { points[i][0].x, 1 };
+			float Yrow[] = { points[i][0].y };
+			Mat newRowX = Mat(1, 2, CV_32F, Xrow).clone();
+			Xchecked0.push_back(newRowX);
+			Mat newRowY = Mat(1, 1, CV_32F, Yrow).clone();
+			Ychecked0.push_back(newRowY);
+			X0Count++;
 		}
-		else if ((640 - yIntercept0) / slope0< (image.cols / 2 - maxDist)) {
-			steering = steering + steeringIncrement;
-			;
-		} else {
-			if (steering > 0)
+	}
+
+	cout << "X0 checked" << Xchecked0 << endl;
+	cout << "Y0 checked" << Ychecked0 << endl;
+	if (X0Count >= minConstraint) {
+		solve(Xchecked0, Ychecked0, Bchecked0, DECOMP_QR);
+
+		cout << "B0 checked = " << endl << Bchecked0 << endl;
+
+		// Next we need to calculate how much we want to shift by: using the line equation obtained in matrix B we can calculate the
+		// y-intercept
+		slope0 = Bchecked0.at<float>(0, 0);
+		yIntercept0 = Bchecked0.at<float>(1, 0);
+		cout << "slope0 = " << slope0 << endl;
+		cout << "yIntercept0 = " << yIntercept0 << endl;
+
+		float xIntercept0 = -yIntercept0 / slope0;
+		cout << "xIntercept0 = " << xIntercept0 << endl;
+
+		if (yIntercept0 != 0) {
+			//Draw Line
+			Point Intercept0 = Point(xIntercept0, 0);
+			Point Intercept640 = Point((640 - yIntercept0) / slope0, 640);
+			line(image_direction, Intercept0, Intercept640,
+					CV_RGB(250, 100, 255), 1, CV_AA);
+
+		}
+	}
+		// 1 aka Right of Left
+		Mat Xchecked1;
+		Mat Ychecked1;
+		Mat Bchecked1;
+		int X1Count = 0;
+		Bchecked1 = Mat::ones(2, 1, CV_32F);
+		for (int i = 0; i < rows2Check; ++i) {
+			if (points[i][1].x > 0) {
+				float Xrow[] = { points[i][1].x, 1 };
+				float Yrow[] = { points[i][1].y };
+				Mat newRowX = Mat(1, 2, CV_32F, Xrow).clone();
+				Xchecked1.push_back(newRowX);
+				Mat newRowY = Mat(1, 1, CV_32F, Yrow).clone();
+				Ychecked1.push_back(newRowY);
+				X1Count++;
+			}
+		}
+
+		cout << "X1 checked" << Xchecked1 << endl;
+		cout << "Y1 checked" << Ychecked1 << endl;
+		if (X1Count >= minConstraint) {
+			solve(Xchecked1, Ychecked1, Bchecked1, DECOMP_QR);
+
+			cout << "B1 checked = " << endl << Bchecked1 << endl;
+			// Next we need to calculate how much we want to shift by: using the line equation obtained in matrix B we can calculate the
+			// y-intercept
+			slope1 = Bchecked1.at<float>(0, 0);
+			yIntercept1 = Bchecked1.at<float>(1, 0);
+			cout << "slope1 = " << slope1 << endl;
+			cout << "yIntercept1 = " << yIntercept1 << endl;
+
+			float xIntercept1 = -yIntercept1 / slope1;
+			cout << "xIntercept1 = " << xIntercept1 << endl;
+
+			if (yIntercept1 != 0) {
+				//Draw Line
+				Point Intercept0 = Point(xIntercept1, 0);
+				Point Intercept640 = Point((640 - yIntercept1) / slope1, 640);
+				line(image_direction, Intercept0, Intercept640,
+						CV_RGB(250, 100, 255), 1, CV_AA);
+			}
+		}
+		// 2 aka Left of Right
+		Mat Xchecked2;
+		Mat Ychecked2;
+		Mat Bchecked2;
+		int X2Count = 0;
+		Bchecked2 = Mat::ones(2, 1, CV_32F);
+		for (int i = 0; i < rows2Check; ++i) {
+			if (points[i][2].x > 0) {
+				float Xrow[] = { points[i][2].x, 1 };
+				float Yrow[] = { points[i][2].y };
+				Mat newRowX = Mat(1, 2, CV_32F, Xrow).clone();
+				Xchecked2.push_back(newRowX);
+				Mat newRowY = Mat(1, 1, CV_32F, Yrow).clone();
+				Ychecked2.push_back(newRowY);
+				X2Count++;
+			}
+		}
+
+		cout << "X2 checked" << Xchecked2 << endl;
+		cout << "Y2 checked" << Ychecked2 << endl;
+		if (X2Count >= minConstraint) {
+			solve(Xchecked2, Ychecked2, Bchecked2, DECOMP_QR);
+
+			cout << "B2 checked = " << endl << Bchecked2 << endl;
+			//want to stream line this by putting points directly into Mat, but for now just going to get something that works
+
+			// Next we need to calculate how much we want to shift by: using the line equation obtained in matrix B we can calculate the
+			// y-intercept
+			slope2 = Bchecked2.at<float>(0, 0);
+			yIntercept2 = Bchecked2.at<float>(1, 0);
+			cout << "slope2 = " << slope2 << endl;
+			cout << "yIntercept2 = " << yIntercept2 << endl;
+
+			float xIntercept2 = -yIntercept2 / slope2;
+			cout << "xIntercept2 = " << xIntercept2 << endl;
+
+			if (yIntercept2 != 0) {
+
+				//Draw Line
+				Point Intercept0 = Point(xIntercept2, 0);
+				Point Intercept640 = Point((640 - yIntercept2) / slope2, 640);
+				line(image_direction, Intercept0, Intercept640,
+						CV_RGB(250, 100, 255), 1, CV_AA);
+
+			}
+		}
+		//3 aka Right of Right
+
+		Mat Xchecked3;
+		Mat Ychecked3;
+		Mat Bchecked3;
+		int X3Count = 0;
+		Bchecked3 = Mat::ones(2, 1, CV_32F);
+		for (int i = 0; i < rows2Check; ++i) {
+			if (points[i][3].x > 0) {
+				float Xrow[] = { points[i][3].x, 1 };
+				float Yrow[] = { points[i][3].y };
+				Mat newRowX = Mat(1, 2, CV_32F, Xrow).clone();
+				Xchecked3.push_back(newRowX);
+				Mat newRowY = Mat(1, 1, CV_32F, Yrow).clone();
+				Ychecked3.push_back(newRowY);
+				X3Count++;
+			}
+		}
+		//want to stream line this by putting points directly into Mat, but for now just going to get something that works
+
+		cout << "X3 checked" << Xchecked3 << endl;
+		cout << "Y3 checked" << Ychecked3 << endl;
+		if (X3Count >= minConstraint) {
+			solve(Xchecked3, Ychecked3, Bchecked3, DECOMP_QR);
+			cout << "B3 checked = " << endl << Bchecked3 << endl;
+			// Next we need to calculate how much we want to shift by: using the line equation obtained in matrix B we can calculate the
+			// y-intercept
+			slope3 = Bchecked3.at<float>(0, 0);
+			yIntercept3 = Bchecked3.at<float>(1, 0);
+			cout << "slope3 = " << slope3 << endl;
+			cout << "yIntercept3 = " << yIntercept3 << endl;
+
+			float xIntercept3 = -yIntercept3 / slope3;
+			cout << "xIntercept3 = " << xIntercept3 << endl;
+
+			if (yIntercept3 != 0) {
+				//Draw Line
+				Point Intercept0 = Point(xIntercept3, 0);
+				Point Intercept640 = Point((640 - yIntercept3) / slope3, 640);
+				line(image_direction, Intercept0, Intercept640,
+						CV_RGB(250, 100, 255), 1, CV_AA);
+			}
+		}
+
+		// Crikey!
+		bool LoL = (yIntercept0 != 0);
+		bool RoL = (yIntercept1 != 0);
+		bool LoR = (yIntercept2 != 0);
+		bool RoR = (yIntercept3 != 0);
+
+		float confidence = 0.1;
+		int minDist = 300; //TODO: adjust this for optimum line following
+		int maxDist = 500;
+
+		int steeringIncrement = 10;
+
+		if (LoL) {
+			if (((640 - yIntercept0) / slope0) >= (image.cols / 2 - minDist)) {
 				steering = steering - steeringIncrement;
-			if (steering < 0)
+			} else if ((640 - yIntercept0) / slope0
+					< (image.cols / 2 - maxDist)) {
 				steering = steering + steeringIncrement;
-		}
+				;
+			} else {
+				if (steering > 0)
+					steering = steering - steeringIncrement;
+				if (steering < 0)
+					steering = steering + steeringIncrement;
+			}
 
-	} else if (RoL) {
-		if ((640 - yIntercept1) / slope1 >= (image.cols / 2 - minDist)) {
-			steering = steering - steeringIncrement;
-		}
-		else if ((640 - yIntercept1) / slope1 < (image.cols / 2 - maxDist)) {
-			steering = steering + steeringIncrement;
+		} else if (RoL) {
+			if ((640 - yIntercept1) / slope1 >= (image.cols / 2 - minDist)) {
+				steering = steering - steeringIncrement;
+			} else if ((640 - yIntercept1) / slope1
+					< (image.cols / 2 - maxDist)) {
+				steering = steering + steeringIncrement;
 
-		} else {
-			if (steering > 0)
-				steering = steering - steeringIncrement;
-			if (steering < 0)
+			} else {
+				if (steering > 0)
+					steering = steering - steeringIncrement;
+				if (steering < 0)
+					steering = steering + steeringIncrement;
+			}
+		} else if (LoR) {
+			if ((640 - yIntercept2) / slope2 <= (image.cols / 2 + minDist)) {
 				steering = steering + steeringIncrement;
-		}
-	} else if (LoR) {
-		if ((640 - yIntercept2) / slope2 <= (image.cols / 2 + minDist)) {
-			steering = steering + steeringIncrement;
-		}
-		if ((640 - yIntercept2) / slope2 > (image.cols / 2 + maxDist)) {
-			steering = steering - steeringIncrement;
-			;
-		} else {
-			if (steering > 0)
+			}
+			if ((640 - yIntercept2) / slope2 > (image.cols / 2 + maxDist)) {
 				steering = steering - steeringIncrement;
-			if (steering < 0)
+				;
+			} else {
+				if (steering > 0)
+					steering = steering - steeringIncrement;
+				if (steering < 0)
+					steering = steering + steeringIncrement;
+			}
+		} else if (RoR) {
+			if ((640 - yIntercept3) / slope3 <= (image.cols / 2 + minDist)) {
+				steering = steering - steeringIncrement;
+			}
+			if ((640 - yIntercept3) / slope3 > (image.cols / 2 + maxDist)) {
 				steering = steering + steeringIncrement;
-		}
-	} else if (RoR) {
-		if ((640 - yIntercept3) / slope3 <= (image.cols / 2 + minDist)) {
-			steering = steering - steeringIncrement;
-		}
-		if ((640 - yIntercept3) / slope3 > (image.cols / 2 + maxDist)) {
-			steering = steering + steeringIncrement;
 
-		} else {
-			if (steering > 0)
-				steering = steering - steeringIncrement;
-			if (steering < 0)
-				steering = steering + steeringIncrement;
+			} else {
+				if (steering > 0)
+					steering = steering - steeringIncrement;
+				if (steering < 0)
+					steering = steering + steeringIncrement;
+			}
 		}
+		if (steering > 100)
+			steering = 100;
+		if (steering < -100)
+			steering = -100;
+		if (steering < 0)
+			cout << "GO RIGHT" << endl;
+		if (steering > 0)
+			cout << "GO LEFT" << endl;
+		if (steering == 0)
+			cout << "GO STRAIGHT" << endl;
+
+		//scale steering
+		float steeringOut = steering / 100.0;
+
+		confidence = LoL + LoR + RoL + RoR;
+		cout << "Steering = " << steeringOut << endl;
+		cout << "Confidence = " << confidence << endl;
+		cout << "Cols" << image_thresholded.cols << endl;
+		cout << "Rows" << image_thresholded.rows << endl;
+
 	}
-	if (steering > 100)
-		steering = 100;
-	if (steering < -100)
-		steering = -100;
-	if(steering<0)cout << "GO RIGHT"<< endl;
-	if(steering > 0)cout << "GO LEFT"<< endl;
-	if(steering==0)cout << "GO STRAIGHT"<< endl;
-
-	//scale steering
-	float steeringOut = steering / 100.0;
-
-	confidence = LoL + LoR + RoL + RoR;
-	cout << "Steering = " << steeringOut << endl;
-	cout << "Confidence = " << confidence << endl;
-	cout << "Cols" << image_thresholded.cols << endl;
-	cout << "Rows" << image_thresholded.rows << endl;
-
-}
 
 	/*
 	 float(calculateDirection){
