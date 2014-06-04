@@ -6,7 +6,8 @@
 #include <fstream>
 #include <string>
 #include <math.h>
-//#include "read_waypoints.h"
+
+// REMEMBER TO EDIT WAYPOINTS FILE DIRECTORY
 
 using namespace std;
 
@@ -21,8 +22,8 @@ int GetWaypoint();
 void CalculateDistance(); 
 double* ReturnWaypoints();
 
-static const string GPS_NODE_NAME = "gps_node";
-static const string GPS_OUTPUT_TOPIC = "sb_gps_output"; // this node's output: pub
+static const string GPS_NODE_NAME = "gps_node"; 
+static const string GPS_OUTPUT_TOPIC = "gps_nav"; 
 double lat, lon, goal_lat, goal_lon, dist, x_dist, y_dist;
 struct waypoint current_waypoint;
 struct waypoint goal_waypoint;
@@ -54,7 +55,7 @@ int main(int argc, char **argv)
 	msg.angular.y = 0;
 	msg.angular.z = 0;
 
-	while (ros::ok()) // false when Ctrl-C, kicked off network, ros::shutdown(), all Nodehandles destroyed.
+	while (ros::ok()) 
 	{
 		CalculateDistance();
 		if (x_dist / abs(x_dist) == -1) { msg.angular.z = -1; }
@@ -62,7 +63,7 @@ int main(int argc, char **argv)
 		msg.linear.x = x_dist;
 		msg.linear.y = y_dist;
 		gps_data_pub.publish(msg);
-		ROS_INFO("Linear.x = %f\nLinear.y = %f\nAngular.z = %f\n", msg.linear.x, msg.linear.y, msg.angular.z);
+		ROS_INFO("\nLinear.x = %f\nLinear.y = %f\nAngular.z = %f\n", msg.linear.x, msg.linear.y, msg.angular.z);
 		ros::spinOnce();
 		loop_rate.sleep(); // sleep for 10hz
 		next_waypoint = GetWaypoint();
@@ -92,6 +93,7 @@ void CalculateDistance()
 }	
 
 
+// Retrieves waypoints from the waypoints file.
 double* ReturnWaypoints() 
 {
 	string output;
@@ -106,14 +108,12 @@ double* ReturnWaypoints()
 			if (count == 0) {
 				array_size = atoi(output.c_str())*2;
 				waypoints_array = new double [array_size];
-				cout << array_size << "\n";
 				count++;
 			}
 			
 			else { 
 				waypoints_array[count-1] = atof(output.c_str());
 				count++;
-				cout << waypoints_array[count-1] << "\n"; 
 			}
 		}
 		waypoints_file.close();
@@ -121,7 +121,7 @@ double* ReturnWaypoints()
 
 	else
 	{
-		cout << "Unable to open file";
+		ROS_INFO("Unable to open file");
 	}
 
 	return waypoints_array;

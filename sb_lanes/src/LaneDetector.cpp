@@ -83,7 +83,7 @@ twist.angular.z = 0;
 
 //----VISION--------
 //Initialize camera
-	VideoCapture cap(-1); // open the default camera
+	VideoCapture cap(1); // open the default camera
 	cout<<"youououou";
 	//VideoCapture cap("sample-course.avi");
 	if (!cap.isOpened())
