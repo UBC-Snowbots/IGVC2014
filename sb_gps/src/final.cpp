@@ -1,8 +1,7 @@
 #include <ros/ros.h>
 #include <std_msgs/String.h>
 #include <geometry_msgs/Twist.h>
-#include <sensor_msgs/NavSatFix.h>
-#include "sb_gps/Coord.h"
+#include "sb_msgs/gps.h"
 #include <sstream>
 #include <iostream>
 #include <fstream>
@@ -25,34 +24,24 @@ void CalculateAngle();
 double* ReturnWaypoints();
 void CheckWaypointStatus();
 
-static const string GPS_NODE_NAME = "temp"; // gps_node TODO 
-static const string GPS_OUTPUT_TOPIC = "temp_output"; // gps_nav TODO
-static const string GPS_INPUT_TOPIC = "sample_coord"; // fix TODO
-bool isAtGoal = false, isFinished = false; // TODO
+static const string GPS_NODE_NAME = "gps_node"; 
+static const string GPS_OUTPUT_TOPIC = "gps_nav"; 
+static const string GPS_INPUT_TOPIC = "gps_data"; // jarek's node TODO
+bool isAtGoal = false, isFinished = false; 
 double lat, lon, goal_lat, goal_lon, angle, x_dist, y_dist;
 struct waypoint current_waypoint;
 struct waypoint goal_waypoint;
 double* waypoints_list = ReturnWaypoints();
 int size = sizeof(waypoints_list), c = 0;
-// var for checking last waypoint TODO
 
-/*
-// callback fnc TODO
-void gpsCallback(const sensor_msgs::NavSatFix::ConstPtr& msg) 
-{
-// TODO:
-	msg->status // NavSatStatus
-	current_waypoint.lat_y = msg->latitude;
-	current_waypoint.long_x = msg->longitude;
-	ROS_INFO("\n>>GPS\nLat(y): %f\nLong(x): %f\n>>SAVED\nLat(y): %f\nLong(x): %f\n", msg->latitude, msg->longitude, current_waypoint.lat_y, current_waypoint.long_x);
-}
-*/
+
 
 // temp callback
-void gpsCallback(const sb_gps::Coord::ConstPtr& msg) 
+void gpsCallback(const sb_msgs::gps::ConstPtr& msg) 
 {
 	current_waypoint.lat_y = msg->latitude;
 	current_waypoint.long_x = msg->longitude;
+	// just for testing:
 	ROS_INFO("\n>>GPS\nLat(y): %f\nLong(x): %f\n>>SAVED\nLat(y): %f\nLong(x): %f\n", msg->latitude, msg->longitude, current_waypoint.lat_y, current_waypoint.long_x);
 }
 
