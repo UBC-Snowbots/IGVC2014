@@ -567,8 +567,8 @@ void getDirection(void) {
 					steering = steering + steeringIncrement;
 			}
 		}
-<<<<<<< HEAD
-	}
+
+	
 	if (steering > 100)
 		steering = 100;
 	if (steering < -100)
@@ -585,27 +585,6 @@ void getDirection(void) {
 	cout << "Confidence = " << confidence << endl;
 	cout << "Cols" << image_thresholded.cols << endl;
 	cout << "Rows" << image_thresholded.rows << endl;
-=======
-		if (steering > 100)
-			steering = 100;
-		if (steering < -100)
-			steering = -100;
-		if (steering < 0)
-			cout << "GO RIGHT" << endl;
-		if (steering > 0)
-			cout << "GO LEFT" << endl;
-		if (steering == 0)
-			cout << "GO STRAIGHT" << endl;
-
-		//scale steering
-		float steeringOut = steering / 100.0;
-
-		confidence = LoL + LoR + RoL + RoR;
-		cout << "Steering = " << steeringOut << endl;
-		cout << "Confidence = " << confidence << endl;
-		cout << "Cols" << image_thresholded.cols << endl;
-		cout << "Rows" << image_thresholded.rows << endl;
->>>>>>> 152fb7a98468031fa30216dd8cf90310b7feafc3
 
 	}
 
