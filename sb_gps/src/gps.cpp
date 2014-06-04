@@ -8,7 +8,8 @@
 #include <string>
 #include <math.h>
 
-// REMEMBER TO EDIT WAYPOINTS FILE DIRECTORY
+// REMEMBER TO EDIT WAYPOINTS FILE DIRECTORY TODO
+// need to add in compass direction still
 
 using namespace std;
 
@@ -108,12 +109,12 @@ int GetWaypoint()
 // TODO Checks if we are sufficiently close to the waypoint
 void CheckWaypointStatus() 
 {
-	// estimated to within 1.1m
+	// estimated to within ~11cm
 	int cx, cy, gx, gy;
-	cx = ceil(current_waypoint.long_x*10000)/10000;
-	cy = ceil(current_waypoint.lat_y*10000)/10000;
-	gx = ceil(goal_waypoint.long_x*10000)/10000;
-	gy = ceil(goal_waypoint.lat_y*10000)/10000;
+	cx = ceil(current_waypoint.long_x*100000)/100000;
+	cy = ceil(current_waypoint.lat_y*100000)/100000;
+	gx = ceil(goal_waypoint.long_x*100000)/100000;
+	gy = ceil(goal_waypoint.lat_y*100000)/100000;
 	if (cx == gx && cy == gy) { isAtGoal = true; }
 	// something to check if it is the last waypoint TODO
 
