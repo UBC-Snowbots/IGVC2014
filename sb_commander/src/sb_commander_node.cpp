@@ -82,7 +82,7 @@ void gps_callback(const geometry_msgs::Twist::ConstPtr& msg)
 {
 	ROS_INFO("\nGot back: [Lin.x = %f, Lin.y = %f, Ang.z = %f]", msg->linear.x, msg->linear.y, msg->angular.z);
 	gps_command.throttle = msg->linear.y;
-  gps_command.steering = msg->angular.z;
+  	gps_command.steering = msg->angular.z;
 }
 
 
