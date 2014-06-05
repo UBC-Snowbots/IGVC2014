@@ -16,3 +16,12 @@ Blue line: where the code beleives there is the closest part of the blue objects
 Red line: where the code beleives there is the closest part of the red objects (highest red density)
 
 Green line: where the code beleives the robot should go
+
+#Compiling 
+*(Non ROS, only works on linux I think)*
+
+ 1. Have OpenCV installed
+ 2. cd into .../sb_flags/bin
+ 3. make
+ 4. ./Sight (stupid name I know but I am not all that creative)
+ 
