@@ -84,13 +84,26 @@ twist.angular.z = 0;
 
 //----VISION--------
 //Initialize camera
-	VideoCapture cap(1); // open the default camera
-	cout<<"youououou";
+	VideoCapture cap; // open the default camera
 	//VideoCapture cap("sample-course.avi");
-	if (!cap.isOpened())
+	//VideoCapture cap("roadsample.mov");
+	//VideoCapture cap("fieldsample.mov");
+	//int capCount = 0;
+	for (int i=5; i>=-1; i--)
 	{
-		cout<<" Camera not opened";
-		return -1;
+		cout << "trying port: " << i << endl;
+		cap.open(i);
+		if (cap.isOpened())
+		{
+			cout << "YAY!" << endl;
+			break;
+		}
+
+		if (i ==-1)
+		{
+			cout << "failed to connect to camera" << endl;
+			return -1;
+		}
 	}
 //---END VISION
 
