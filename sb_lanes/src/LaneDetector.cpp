@@ -585,19 +585,31 @@ void getDirection(void) {
 		if (L && R) direction = (leftSlope + rightSlope)/2;
 		else if (LoL||RoL||LoR||RoR) direction = (leftSlope + rightSlope)/2;
 
-		if (direction > 0) steering--;
-		if (direction < 0) steering++;
-		if (direction == 0 ) steering = 0;
+		if (direction > 0)
+			{
+			steering++;
+			cout<< "GOING LEFT"<<endl;
+			}
+		if (direction < 0){
+			steering--;
+			cout<<"GOING RIGHT"<<endl;
+		}
+
+		if (direction == 0 ) {
+			steering = 0;
+			cout<<"GOING STRAIGHT"<<endl;
+
+		}
 
 		if (steering > 100)
 			steering = 100;
 		if (steering < -100)
 			steering = -100;
 		steeringOut = steering / 100.0;
-		if (steering < 0)cout << "GOING RIGHT" << endl;
+		if (steering < 0)cout << "HEADING RIGHT" << endl;
 		if (steering > 0)
-			cout << "GOING LEFT" << endl;
-		if (steering == 0)cout << "GOING STRAIGHT" << endl;
+			cout << "HEADING LEFT" << endl;
+		if (steering == 0)cout << "HEADING STRAIGHT" << endl;
 
 
 		cout << "Steering = " << steeringOut << endl;
