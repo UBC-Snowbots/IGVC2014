@@ -1,7 +1,7 @@
 #include <ros/ros.h>
 #include <std_msgs/String.h>
 #include <geometry_msgs/Twist.h>
-#include "sb_msgs/gps.h"
+#include "sb_msgs/CarCommand.h"
 #include <sstream>
 #include <iostream>
 #include <fstream>
@@ -25,26 +25,28 @@ void CalculateAngle();
 double* ReturnWaypoints();
 void CheckWaypointStatus();
 
+// variables
 static const string GPS_NODE_NAME = "gps_node"; 
 static const string GPS_OUTPUT_TOPIC = "gps_nav"; 
-static const string GPS_INPUT_TOPIC = "gps_data"; // jarek's node TODO
+static const string GPS_TEST_TOPIC = "vision_vel"; // test sub
+static const string GPS_INPUT_TOPIC = "gps_state"; 
 bool isAtGoal = false, isFinished = false; 
 double lat, lon, goal_lat, goal_lon, angle, x_dist, y_dist, current_direction;
 struct waypoint current_waypoint;
 struct waypoint goal_waypoint;
 double* waypoints_list = ReturnWaypoints();
-int size = sizeof(waypoints_list), c = 0;
+int size = sizeof(waypoints_list), c = 0, lat_exp, long_exp;
 
 
 
 // temp callback
-void gpsCallback(const sb_msgs::gps::ConstPtr& msg) 
+void gpsCallback(const std_msgs::String::ConstPtr& msg) // changed to string
 {
-	current_waypoint.lat_y = msg->latitude;
-	current_waypoint.long_x = msg->longitude;
-	current_direction = msg->compass; // direction
-	// just for testing:
-	ROS_INFO("\n>>GPS\nLat(y): %f\nLong(x): %f\n>>SAVED\nLat(y): %f\nLong(x): %f\n", msg->latitude, msg->longitude, current_waypoint.lat_y, current_waypoint.long_x);
+	sscanf(msg->data.c_str(), "B,%lfe+%d,%lfe+%d,%lf", &current_waypoint.lat_y, &lat_exp, &current_waypoint.long_x, &long_exp, &current_direction);
+	lat_exp -= 7; lat_exp = pow(10, lat_exp);
+	long_exp -= 7; long_exp = pow(10, long_exp);
+	current_waypoint.lat_y *= lat_exp;
+	current_waypoint.long_x *= long_exp;
 }
 
 
@@ -59,29 +61,40 @@ int main(int argc, char **argv)
 	ros::init(argc, argv, GPS_NODE_NAME); // start node
 	ros::NodeHandle nh; // main access point to communication with ROS system. First one initializes node.
 
-	ros::Publisher gps_data_pub = nh.advertise<geometry_msgs::Twist>(GPS_OUTPUT_TOPIC, 20); // publisher for output
-	ros::Subscriber gps_sub = nh.subscribe(GPS_INPUT_TOPIC, 20, gpsCallback); // TODO subscribe to gps data
+	ros::Publisher gps_test_pub = nh.advertise<geometry_msgs::Twist>(GPS_TEST_TOPIC, 20); 
+	ros::Publisher gps_data_pub = nh.advertise<sb_msgs::CarCommand>(GPS_OUTPUT_TOPIC, 20);
+	ros::Subscriber gps_sub = nh.subscribe(GPS_INPUT_TOPIC, 20, gpsCallback); 
 
 	ros::Rate loop_rate(5); // 10hz loop rate
 
 	int next_waypoint = GetWaypoint();
 
-	geometry_msgs::Twist msg;
+	geometry_msgs::Twist t_msg;
 	// do nothing for linear
-	msg.linear.x = 0;
-	msg.linear.y = 0;
-	msg.linear.z = 0;
-	msg.angular.x = 0;
-	msg.angular.y = 0;
+	t_msg.linear.x = 1;
+	t_msg.linear.y = 1;
+	t_msg.linear.z = 0;
+	t_msg.angular.x = 0;
+	t_msg.angular.y = 0;
 	// angular.z is angle in ratio (1 <= theta <= -1)
-	msg.angular.z = 0;
+	t_msg.angular.z = 0;
+
+
+	sb_msgs::CarCommand cc_msg;
+	cc_msg.throttle = 1;
+	cc_msg.steering = 0;
+	cc_msg.priority = 1;
 
 	while (ros::ok()) 
 	{
 		CalculateAngle(); // calculate angular.z
-		msg.angular.z = angle;
-		gps_data_pub.publish(msg);
-		ROS_INFO("\nLinear.x = %f\nLinear.y = %f\nAngular.z = %f\n", msg.linear.x, msg.linear.y, msg.angular.z);
+		t_msg.angular.z = angle;
+		cc_msg.steering = angle;
+		gps_test_pub.publish(t_msg);
+		gps_data_pub.publish(cc_msg);
+
+		//ROS_INFO("\nLinear.x = %f\nLinear.y = %f\nAngular.z = %f\n", msg.linear.x, msg.linear.y, msg.angular.z);
+
 		ros::spinOnce();
 		loop_rate.sleep(); // sleep for 10hz
 		CheckWaypointStatus();
@@ -118,7 +131,6 @@ void CheckWaypointStatus()
 	gx = ceil(goal_waypoint.long_x*100000)/100000;
 	gy = ceil(goal_waypoint.lat_y*100000)/100000;
 	if (cx == gx && cy == gy) { isAtGoal = true; }
-	// something to check if it is the last waypoint TODO
 
 }
 
@@ -148,6 +160,7 @@ void CalculateAngle()
 			if (y_dist / abs(y_dist) == -1) { angle += 90.0; }
 		}
 	}
+
 	if (abs(current_direction - angle) <= 5.00) { angle = 0; return; }
 	else if (abs(current_direction - angle) < 180.00) { angle = current_direction - angle; }
 	else { angle = 360.00 - current_direction + angle; angle *= -1;}  
