@@ -418,6 +418,14 @@ int main() {
 
 		//Calculate relative push from both
 		double netPercentage = redNet+bluNet;
+		
+		//The value to be passed !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		cout << "Direction: " << netPercentage;
+		if(netPercentage > 0){
+			cout << " (RIGHT)" << endl;
+		}else{
+			cout << " (LEFT)" << endl;
+		}
 
 		//NOTE: doesnt show direction but instead predicted robot path
 		double netPos = (netPercentage+0.5)*original.cols;
