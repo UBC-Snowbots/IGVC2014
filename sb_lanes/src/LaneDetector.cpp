@@ -1,6 +1,7 @@
 
 #include "ros/ros.h"
 #include "std_msgs/String.h"
+#include "sb_msgs/CarCommand.h"
 #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/Vector3.h>
 #include <string>
@@ -27,7 +28,7 @@ using namespace cv;
 using namespace std; 
 using namespace ros; 
 //---VISION---------------
-//Function Declarations (Don't worry will get rid of a lot of these)
+//Function Declarations
 void detectLines(void);
 void findcentre(int);
 int findcentre1(int);
@@ -46,12 +47,14 @@ float calculateDirection1();
 //global strings for ros node and topic names
 static const string NODE_NAME = "LaneDetector";
 static const string PUBLISH_TOPIC = "vision_vel";
+static const string PUBLISH_TOPIC2 = "vision_nav";
 const int MSG_QUEUE_SIZE = 20;
 int dx = 0;
 int dy = 0;
 double steering = 0;
 double steeringOut = 0;
-double throttle = 0;
+double throttle = 0.25;
+
 //---VISION---------------------
 Mat image, image_grey, image_filter, image_thresholded, image_canny, image_blur,
 		image_blur2, image_direction;
@@ -65,21 +68,26 @@ int const max_BINARY_value = 255;
 
 int main(int argc, char **argv)
 {
+
   // ----ROS------
   init(argc, argv, NODE_NAME);
   NodeHandle n;
   Publisher chatter_pub = n.advertise<geometry_msgs::Twist>(PUBLISH_TOPIC, MSG_QUEUE_SIZE);
-
+  Publisher vision_pub = n.advertise<sb_msgs:: CarCommand>(PUBLISH_TOPIC2, MSG_QUEUE_SIZE);
   ros::Rate loop_rate(10);
 
   int count = 0;
   geometry_msgs::Twist twist;
 twist.linear.x = 0;
-twist.linear.y = 0.8;
+twist.linear.y = throttle;
 twist.linear.z = 0;
 twist.angular.x = 0;
 twist.angular.y = 0;
 twist.angular.z = 0;
+ sb_msgs::CarCommand vision_nav;
+vision_nav.throttle = throttle;
+vision_nav.steering = 0;
+vision_nav.priority = 0;
 //---END ROS
 
 //----VISION--------
@@ -88,7 +96,7 @@ twist.angular.z = 0;
 	//VideoCapture cap("sample-course.avi");
 	//VideoCapture cap("roadsample.mov");
 	//VideoCapture cap("fieldsample.mov");
-	//int capCount = 0;
+	
 	for (int i=5; i>=-1; i--)
 	{
 		cout << "trying port: " << i << endl;
@@ -110,10 +118,6 @@ twist.angular.z = 0;
   while (ros::ok())
   {
 
-    std_msgs::String msg;
-    std::stringstream ss;//TODO: delete?
-    ss << "Twist Message is being output " << count;//TODO: delete?
-    msg.data = ss.str();//TODO: delete?
 
 //----VISION-----
   
@@ -142,10 +146,13 @@ twist.angular.z = 0;
 		//waitKey(0); //use waitKey(0); to enter "debugging" mode
 		if (waitKey(1) == 27)
 			break; // Wait for one ms, break if escape is pressed
- if (dx == 0) dx = 1;
+ 
  twist.angular.z = steeringOut;
-    chatter_pub.publish(twist);
-   ROS_INFO("Vision Published: y linear- %f, z angular - %f",twist.linear.y,twist.angular.z);
+vision_nav.steering = steeringOut; 
+   chatter_pub.publish(twist);
+ ROS_INFO("Vision Published a twist : y linear- %f, z angular - %f",twist.linear.y,twist.angular.z);
+vision_pub.publish(vision_nav);
+ ROS_INFO("Vision Published a CarCommand: throttle - %f, steering - %f, priority - %f",vision_nav.throttle, vision_nav.steering, vision_nav.priority);  
 
     ros::spinOnce();
 
