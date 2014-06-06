@@ -22,7 +22,9 @@ using namespace std;
 //Global constatns
 static const double IGNORE_ANGLE = 3.1415265; //pi radians = 90 degrees
 static const int    OFFSET_ANGLE = 20;        // offset from central ray
-static const double REDZONE      = 0.5;
+static const double REDZONE      = 1.0;
+static const double ORANGEZONE   = 2.0;
+static const double SLOW_SPEED	 = 0.2;
 
 //ros related constants
 static const string NODE_NAME       = "lidar_nav";
@@ -98,10 +100,14 @@ void callback(const sensor_msgs::LaserScanConstPtr& msg_ptr)
 		if (dist < REDZONE)
 		{
 			// stop moving forward
-			// directions.x = 0;
 			car_command.throttle = 0;
 			car_command.priority = 1;		
-		}		
+		}
+		else if (dist < ORANGEZONE)
+		{
+			car_command.throttle = SLOW_SPEED;
+			car_command.priority = 0.8;	
+		}
 	}
 }
 
