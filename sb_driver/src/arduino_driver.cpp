@@ -15,6 +15,7 @@
 #include <math.h>
 #include <ros/ros.h>
 #include <std_msgs/Bool.h>
+#include <std_msgs/String.h>
 #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/Vector3.h>
 #include "sb_msgs/TurretCommand.h"
@@ -39,6 +40,7 @@ static const string CAR_COMMAND_TOPIC = "vision_vel";
 static const string TURRET_COMMAND_TOPIC = "turret_command";
 static const string ESTOP_TOPIC = "eStop";
 static const string ROBOT_STATE_TOPIC = "robot_state";
+static const string GPS_STATE_TOPIC = "gps_state";
 
 static const string INIT_STRING = "BG";
 static const char IDENTIFIER_BYTE = 'B';
@@ -92,6 +94,7 @@ int main(int argc, char** argv)
 	Subscriber eStop_topic = n.subscribe(ESTOP_TOPIC, 1, eStop_callback);
 	
 	Publisher robot_state = n.advertise<sb_msgs::RobotState>(ROBOT_STATE_TOPIC,1);
+	Publisher gps_state = n.advertise<std_msgs::String>(GPS_STATE_TOPIC,1);
 	
 	/*
 	//handshake with arduino and initialize robot
@@ -111,6 +114,7 @@ int main(int argc, char** argv)
 	*/
 	sb_msgs::IMU imu;
 	sb_msgs::RobotState state;
+	std_msgs::String gps_data;
 	
 	ROS_INFO("arduino_driver ready");
 	mech.twist_x=125;
@@ -148,7 +152,7 @@ int main(int argc, char** argv)
 	    //read from arduino
 	    //processData(link.readData(), state);
 
-		cout << link.readData(30) <<"\n";
+		cout << link.readData(38) <<"\n";
 
 		link.clearBuffer();
 	    //populate GUI data
@@ -156,6 +160,9 @@ int main(int argc, char** argv)
 	    
 	    //publish data
 	    robot_state.publish(state);
+	    
+	    gps_data.data = link.readData(38);
+	    gps_state.publish(gps_data);
 	    
 	    //clear buffer (MAY NOT WORK)
 	    link.clearBuffer();
