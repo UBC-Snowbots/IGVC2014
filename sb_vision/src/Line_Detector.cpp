@@ -54,14 +54,30 @@ int main(int argc, char** argv) {
 	cout << "Running" << endl;
 
 	//Initialize camera
-	//VideoCapture cap(0); // open the default camera
+	//VideoCapture cap; // open the default camera
 	//VideoCapture cap("sample-course.avi");
 	//VideoCapture cap("roadsample.mov");
 	VideoCapture cap("fieldsample.mov");
-	if (!cap.isOpened()) {
-		cout << " Camera not opened";
-		return -1;
-	}
+	//int capCount = 0;
+
+/*//Comment this for testing with sample recordings
+	for (int i=5; i>=-1; i--)
+	{
+		cout << "Trying to connect camera on port: " << i << endl;
+		cap.open(i);
+		if (cap.isOpened())
+		{
+			cout << "YAY!" << endl;
+			break;
+		}
+
+		if (i ==-1)
+		{
+			cout << "failed to connect to camera" << endl;
+			return -1;
+		}
+	}*/
+
 
 	while (1) {
 
@@ -147,9 +163,10 @@ void filterImage(void) {
 
 void getDirection(void) {
 
-	int rows2Check = 4;
-	int distanceBetweenRows = image.rows / 10;
-	int const startRow = image.rows / 2 + distanceBetweenRows; //TODO: adjust for camera angle
+	int rows2Check = 14;
+	int minConstraint = 8; // need this many, or more point to define a line
+	int distanceBetweenRows = image.rows / 20;
+	int const startRow = image.rows / 2 + distanceBetweenRows*7; //TODO: adjust for camera angle
 	int row = startRow;
 
 	Point points[rows2Check][4];
@@ -290,7 +307,7 @@ void getDirection(void) {
 	float yIntercept1 = 0;
 	float yIntercept2 = 0;
 	float yIntercept3 = 0;
-	int minConstraint = 3; // need this many, or more point to define a line
+
 
 	// 0 aka Left of Left -----------------------------
 
@@ -300,7 +317,7 @@ void getDirection(void) {
 	int X0Count = 0;
 	Bchecked0 = Mat::ones(2, 1, CV_32F);
 
-	for (int i = 0; i < 4; ++i) {
+	for (int i = 0; i < rows2Check; ++i) {
 		if (points[i][0].x > 0) {
 			float Xrow[] = { points[i][0].x, 1 };
 			float Yrow[] = { points[i][0].y };
@@ -339,13 +356,12 @@ void getDirection(void) {
 		}
 	}
 		// 1 aka Right of Left
-
 		Mat Xchecked1;
 		Mat Ychecked1;
 		Mat Bchecked1;
 		int X1Count = 0;
 		Bchecked1 = Mat::ones(2, 1, CV_32F);
-		for (int i = 0; i < 4; ++i) {
+		for (int i = 0; i < rows2Check; ++i) {
 			if (points[i][1].x > 0) {
 				float Xrow[] = { points[i][1].x, 1 };
 				float Yrow[] = { points[i][1].y };
@@ -387,7 +403,7 @@ void getDirection(void) {
 		Mat Bchecked2;
 		int X2Count = 0;
 		Bchecked2 = Mat::ones(2, 1, CV_32F);
-		for (int i = 0; i < 4; ++i) {
+		for (int i = 0; i < rows2Check; ++i) {
 			if (points[i][2].x > 0) {
 				float Xrow[] = { points[i][2].x, 1 };
 				float Yrow[] = { points[i][2].y };
@@ -402,7 +418,7 @@ void getDirection(void) {
 		cout << "X2 checked" << Xchecked2 << endl;
 		cout << "Y2 checked" << Ychecked2 << endl;
 		if (X2Count >= minConstraint) {
-			solve(Xchecked2, Ychecked2, Bchecked2, DECOMP_QR);
+			solve(Xchecked2, Ychecked2, Bchecked2, DECOMP_NORMAL);
 
 			cout << "B2 checked = " << endl << Bchecked2 << endl;
 			//want to stream line this by putting points directly into Mat, but for now just going to get something that works
@@ -424,7 +440,6 @@ void getDirection(void) {
 				Point Intercept640 = Point((640 - yIntercept2) / slope2, 640);
 				line(image_direction, Intercept0, Intercept640,
 						CV_RGB(250, 100, 255), 1, CV_AA);
-
 			}
 		}
 		//3 aka Right of Right
@@ -434,7 +449,7 @@ void getDirection(void) {
 		Mat Bchecked3;
 		int X3Count = 0;
 		Bchecked3 = Mat::ones(2, 1, CV_32F);
-		for (int i = 0; i < 4; ++i) {
+		for (int i = 0; i < rows2Check; ++i) {
 			if (points[i][3].x > 0) {
 				float Xrow[] = { points[i][3].x, 1 };
 				float Yrow[] = { points[i][3].y };
@@ -442,7 +457,7 @@ void getDirection(void) {
 				Xchecked3.push_back(newRowX);
 				Mat newRowY = Mat(1, 1, CV_32F, Yrow).clone();
 				Ychecked3.push_back(newRowY);
-				X2Count++;
+				X3Count++;
 			}
 		}
 		//want to stream line this by putting points directly into Mat, but for now just going to get something that works
@@ -450,7 +465,7 @@ void getDirection(void) {
 		cout << "X3 checked" << Xchecked3 << endl;
 		cout << "Y3 checked" << Ychecked3 << endl;
 		if (X3Count >= minConstraint) {
-			solve(Xchecked3, Ychecked3, Bchecked3, DECOMP_QR);
+			solve(Xchecked3, Ychecked3, Bchecked3, DECOMP_NORMAL);
 
 			cout << "B3 checked = " << endl << Bchecked3 << endl;
 			// Next we need to calculate how much we want to shift by: using the line equation obtained in matrix B we can calculate the
@@ -473,10 +488,10 @@ void getDirection(void) {
 		}
 
 		// Crikey!
-		bool LoL = (yIntercept0 < 0);
-		bool RoL = (yIntercept1 < 0);
-		bool LoR = (yIntercept2 < 0);
-		bool RoR = (yIntercept3 < 0);
+		bool LoL = (yIntercept0 != 0);
+		bool RoL = (yIntercept1 != 0);
+		bool LoR = (yIntercept2 != 0);
+		bool RoR = (yIntercept3 != 0);
 
 		float confidence = 0.1;
 		int minDist = 300; //TODO: adjust this for optimum line following
