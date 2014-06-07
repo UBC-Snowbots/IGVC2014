@@ -49,21 +49,26 @@ static const string NODE_NAME = "LaneDetector";
 static const string PUBLISH_TOPIC = "vision_vel";
 static const string PUBLISH_TOPIC2 = "vision_nav";
 const int MSG_QUEUE_SIZE = 20;
-int dx = 0;
-int dy = 0;
-double steering = 0;
-double steeringOut = 0;
-double throttle = 0.25;
+float throttle = 0.25;
+
 
 //---VISION---------------------
 Mat image, image_grey, image_filter, image_thresholded, image_canny, image_blur,
 		image_blur2, image_direction;
-Mat image_H, image_S, image_V, image_histo, image_HThresh, image_SThresh,
-		image_VThresh;
+Mat image_H, image_S, image_V, image_R, image_G, image_B, image_histo, image_HThresh, image_SThresh,
+		image_VThresh, image_noG;
 Mat histogram_H, histogram_S, histogram_V;
-int const threshold_value = 200;
-int blur_value = 2;
+//float direction[3] = { 0, 0, 0 }; // x,y,z using right handed co-ordinate system, + z rotate counter clockwise
+int const threshold_value = 195;
+int blur_value = 5;
 int const max_BINARY_value = 255;
+int dx = 0;
+int dy = 0;
+float steeringOut = 0;
+float steering = 0;
+int priority = 0;
+float direction = 0;
+int noLinesWait = 0;
 // --END VISION -------
 
 int main(int argc, char **argv)
@@ -149,6 +154,7 @@ vision_nav.priority = 0;
  
  twist.angular.z = steeringOut;
 vision_nav.steering = steeringOut; 
+vision_nav.priority = priority;
    chatter_pub.publish(twist);
  ROS_INFO("Vision Published a twist : y linear- %f, z angular - %f",twist.linear.y,twist.angular.z);
 vision_pub.publish(vision_nav);
@@ -184,8 +190,8 @@ void filterImage(void) {
 
 	//Threshold the image: 3 different options
 	//Regular threshold
-	threshold(image_blur2, image_thresholded, threshold_value, max_BINARY_value,
-			THRESH_BINARY);
+	//threshold(image_blur2, image_thresholded, threshold_value, max_BINARY_value,
+	//		THRESH_BINARY);
 	//Adaptive threshold
 	//adaptiveThreshold(image_blur2, image_thresholded,255, CV_ADAPTIVE_THRESH_GAUSSIAN_C, CV_THRESH_BINARY,71, 15);
 	//Otsu threshold
@@ -194,13 +200,12 @@ void filterImage(void) {
 	//Canny Edge detection
 	Canny(image_thresholded, image_canny, 50, 200, 3);
 }
-
 void getDirection(void) {
 
 	int rows2Check = 14;
 	int minConstraint = 8; // need this many, or more point to define a line
 	int distanceBetweenRows = image.rows / 20;
-	int const startRow = image.rows / 2 + distanceBetweenRows*7; //TODO: adjust for camera angle
+	int const startRow = image.rows / 2 + distanceBetweenRows*9; //TODO: adjust for camera angle
 	int row = startRow;
 
 	Point points[rows2Check][4];
@@ -236,9 +241,9 @@ void getDirection(void) {
 		Point centre;
 
 		if (transitions[i] == 0) {
-			cout << "Error: No lines detected at row" << i << endl;
+			//cout << "Error: No lines detected at row" << i << endl;
 		} else if (transitions[i] > 4) {
-			cout << "Error: More than 2 lines detected at row" << i << endl; // consider adjusting thresholding values here
+			//cout << "Error: More than 2 lines detected at row" << i << endl; // consider adjusting thresholding values here
 		} else {
 			for (int f = 0; f < image_thresholded.cols; f++) {
 
@@ -363,22 +368,22 @@ void getDirection(void) {
 		}
 	}
 
-	cout << "X0 checked" << Xchecked0 << endl;
-	cout << "Y0 checked" << Ychecked0 << endl;
+	//cout << "X0 checked" << Xchecked0 << endl;
+	//cout << "Y0 checked" << Ychecked0 << endl;
 	if (X0Count >= minConstraint) {
 		solve(Xchecked0, Ychecked0, Bchecked0, DECOMP_QR);
 
-		cout << "B0 checked = " << endl << Bchecked0 << endl;
+		//cout << "B0 checked = " << endl << Bchecked0 << endl;
 
 		// Next we need to calculate how much we want to shift by: using the line equation obtained in matrix B we can calculate the
 		// y-intercept
 		slope0 = Bchecked0.at<float>(0, 0);
 		yIntercept0 = Bchecked0.at<float>(1, 0);
-		cout << "slope0 = " << slope0 << endl;
-		cout << "yIntercept0 = " << yIntercept0 << endl;
+		//cout << "slope0 = " << slope0 << endl;
+		//cout << "yIntercept0 = " << yIntercept0 << endl;
 
 		float xIntercept0 = -yIntercept0 / slope0;
-		cout << "xIntercept0 = " << xIntercept0 << endl;
+		//cout << "xIntercept0 = " << xIntercept0 << endl;
 
 		if (yIntercept0 != 0) {
 			//Draw Line
@@ -407,21 +412,21 @@ void getDirection(void) {
 			}
 		}
 
-		cout << "X1 checked" << Xchecked1 << endl;
-		cout << "Y1 checked" << Ychecked1 << endl;
+		//cout << "X1 checked" << Xchecked1 << endl;
+		//cout << "Y1 checked" << Ychecked1 << endl;
 		if (X1Count >= minConstraint) {
 			solve(Xchecked1, Ychecked1, Bchecked1, DECOMP_QR);
 
-			cout << "B1 checked = " << endl << Bchecked1 << endl;
+		//	cout << "B1 checked = " << endl << Bchecked1 << endl;
 			// Next we need to calculate how much we want to shift by: using the line equation obtained in matrix B we can calculate the
 			// y-intercept
 			slope1 = Bchecked1.at<float>(0, 0);
 			yIntercept1 = Bchecked1.at<float>(1, 0);
-			cout << "slope1 = " << slope1 << endl;
-			cout << "yIntercept1 = " << yIntercept1 << endl;
+		//	cout << "slope1 = " << slope1 << endl;
+		//	cout << "yIntercept1 = " << yIntercept1 << endl;
 
 			float xIntercept1 = -yIntercept1 / slope1;
-			cout << "xIntercept1 = " << xIntercept1 << endl;
+		//	cout << "xIntercept1 = " << xIntercept1 << endl;
 
 			if (yIntercept1 != 0) {
 				//Draw Line
@@ -448,24 +453,23 @@ void getDirection(void) {
 				X2Count++;
 			}
 		}
-
-		cout << "X2 checked" << Xchecked2 << endl;
-		cout << "Y2 checked" << Ychecked2 << endl;
+		//cout << "X2 checked" << Xchecked2 << endl;
+		//cout << "Y2 checked" << Ychecked2 << endl;
 		if (X2Count >= minConstraint) {
 			solve(Xchecked2, Ychecked2, Bchecked2, DECOMP_QR);
 
-			cout << "B2 checked = " << endl << Bchecked2 << endl;
+		//	cout << "B2 checked = " << endl << Bchecked2 << endl;
 			//want to stream line this by putting points directly into Mat, but for now just going to get something that works
 
 			// Next we need to calculate how much we want to shift by: using the line equation obtained in matrix B we can calculate the
 			// y-intercept
 			slope2 = Bchecked2.at<float>(0, 0);
 			yIntercept2 = Bchecked2.at<float>(1, 0);
-			cout << "slope2 = " << slope2 << endl;
-			cout << "yIntercept2 = " << yIntercept2 << endl;
+		//	cout << "slope2 = " << slope2 << endl;
+		//	cout << "yIntercept2 = " << yIntercept2 << endl;
 
 			float xIntercept2 = -yIntercept2 / slope2;
-			cout << "xIntercept2 = " << xIntercept2 << endl;
+		//	cout << "xIntercept2 = " << xIntercept2 << endl;
 
 			if (yIntercept2 != 0) {
 
@@ -474,7 +478,6 @@ void getDirection(void) {
 				Point Intercept640 = Point((640 - yIntercept2) / slope2, 640);
 				line(image_direction, Intercept0, Intercept640,
 						CV_RGB(250, 100, 255), 1, CV_AA);
-
 			}
 		}
 		//3 aka Right of Right
@@ -495,22 +498,24 @@ void getDirection(void) {
 				X3Count++;
 			}
 		}
+
 		//want to stream line this by putting points directly into Mat, but for now just going to get something that works
 
-		cout << "X3 checked" << Xchecked3 << endl;
-		cout << "Y3 checked" << Ychecked3 << endl;
+		//cout << "X3 checked" << Xchecked3 << endl;
+		//cout << "Y3 checked" << Ychecked3 << endl;
 		if (X3Count >= minConstraint) {
 			solve(Xchecked3, Ychecked3, Bchecked3, DECOMP_QR);
-			cout << "B3 checked = " << endl << Bchecked3 << endl;
+
+		//	cout << "B3 checked = " << endl << Bchecked3 << endl;
 			// Next we need to calculate how much we want to shift by: using the line equation obtained in matrix B we can calculate the
 			// y-intercept
 			slope3 = Bchecked3.at<float>(0, 0);
 			yIntercept3 = Bchecked3.at<float>(1, 0);
-			cout << "slope3 = " << slope3 << endl;
-			cout << "yIntercept3 = " << yIntercept3 << endl;
+		//	cout << "slope3 = " << slope3 << endl;
+		//	cout << "yIntercept3 = " << yIntercept3 << endl;
 
 			float xIntercept3 = -yIntercept3 / slope3;
-			cout << "xIntercept3 = " << xIntercept3 << endl;
+		//	cout << "xIntercept3 = " << xIntercept3 << endl;
 
 			if (yIntercept3 != 0) {
 				//Draw Line
@@ -519,95 +524,111 @@ void getDirection(void) {
 				line(image_direction, Intercept0, Intercept640,
 						CV_RGB(250, 100, 255), 1, CV_AA);
 			}
+			Xchecked0.release();
+			Ychecked0.release();
+			Bchecked0.release();
+			Xchecked1.release();
+		    Ychecked1.release();
+			Bchecked1.release();
+			Xchecked2.release();
+			Ychecked2.release();
+			Bchecked2.release();
+			Xchecked3.release();
+		    Ychecked3.release();
+			Bchecked3.release();
 		}
+
+
 
 		// Crikey!
-		bool LoL = (yIntercept0 != 0);
-		bool RoL = (yIntercept1 != 0);
-		bool LoR = (yIntercept2 != 0);
-		bool RoR = (yIntercept3 != 0);
+		float minSlope = .1;
+		bool LoL = (slope0 < -minSlope)||(slope0 > minSlope ); // these values we chosen to reduce errors
+		bool RoL = (slope1 < -minSlope)||(slope1 > minSlope );
+		bool LoR = (slope2 < -minSlope)||(slope2 > minSlope );
+		bool RoR = (slope3 < -minSlope)||(slope3 > minSlope );
+		bool R; //  right line detected?
+		bool L; // left line detected?
 
-		float confidence = 0.1;
-		int minDist = 300; //TODO: adjust this for optimum line following
-		int maxDist = 500;
+		if (LoL && RoL) L = 1;
+		if (LoR && RoR) R = 1;
 
-		int steeringIncrement = 10;
+		// Perform HitTest if hit set priority to 1 & move away
+		int robotPosy = image_thresholded.cols + 300; //TODO: alter this parameter
+		if(LoL||RoL||LoR||RoR) priority = 0;
+		if (LoL && ((robotPosy - yIntercept0)/ slope0) > 1/3*image_thresholded.cols){
+			priority = 1;
+			steering++;
+		}
+		else if (RoL && ((robotPosy - yIntercept1)/ slope1) > 1/3*image_thresholded.cols){
+			priority = 1;
+			steering++;
 
-		if (LoL) {
-			if (((640 - yIntercept0) / slope0) >= (image.cols / 2 - minDist)) {
-				steering = steering - steeringIncrement;
-			} else if ((640 - yIntercept0) / slope0
-					< (image.cols / 2 - maxDist)) {
-				steering = steering + steeringIncrement;
-				;
-			} else {
-				if (steering > 0)
-					steering = steering - steeringIncrement;
-				if (steering < 0)
-					steering = steering + steeringIncrement;
-			}
+		}
+		else if (LoR && ((robotPosy - yIntercept2)/slope2) < 2/3*image_thresholded.cols){
+			priority = 1;
+			steering--;
 
-		} else if (RoL) {
-			if ((640 - yIntercept1) / slope1 >= (image.cols / 2 - minDist)) {
-				steering = steering - steeringIncrement;
-			} else if ((640 - yIntercept1) / slope1
-					< (image.cols / 2 - maxDist)) {
-				steering = steering + steeringIncrement;
-
-			} else {
-				if (steering > 0)
-					steering = steering - steeringIncrement;
-				if (steering < 0)
-					steering = steering + steeringIncrement;
-			}
-		} else if (LoR) {
-			if ((640 - yIntercept2) / slope2 <= (image.cols / 2 + minDist)) {
-				steering = steering + steeringIncrement;
-			}
-			if ((640 - yIntercept2) / slope2 > (image.cols / 2 + maxDist)) {
-				steering = steering - steeringIncrement;
-				;
-			} else {
-				if (steering > 0)
-					steering = steering - steeringIncrement;
-				if (steering < 0)
-					steering = steering + steeringIncrement;
-			}
-		} else if (RoR) {
-			if ((640 - yIntercept3) / slope3 <= (image.cols / 2 + minDist)) {
-				steering = steering - steeringIncrement;
-			}
-			if ((640 - yIntercept3) / slope3 > (image.cols / 2 + maxDist)) {
-				steering = steering + steeringIncrement;
-
-			} else {
-				if (steering > 0)
-					steering = steering - steeringIncrement;
-				if (steering < 0)
-					steering = steering + steeringIncrement;
+		}
+		else if (RoR && ((robotPosy - yIntercept3)/slope3) < 2/3*image_thresholded.cols){
+			priority = 1;
+			steering--;
+		}
+		else if (!LoL&&!RoL&&!LoR&&!RoR)
+		{
+			cout<<"NO LINES DETECTED, WAITING"<<endl;
+			noLinesWait++;
+			waitKey(1);
+			if (noLinesWait > 100)
+			{
+				priority = -1;
+				noLinesWait = 0;
 			}
 		}
+		if (priority == 1) {cout<<" ABOUT TO HIT LINE" << endl; return;}
+		if (priority == -1) {cout<<"NO LINES DETECTED FOR EXTENDED PEROID SWITCHING TO GPS" << endl; return;}
+		// Otherwise perform direction test and move
+		float leftSlope = 0;
+		float rightSlope = 0;
 
-	
-	if (steering > 100)
-		steering = 100;
-	if (steering < -100)
-		steering = -100;
-	if(steering<0)cout << "GO RIGHT"<< endl;
-	if(steering > 0)cout << "GO LEFT"<< endl;
-	if(steering==0)cout << "GO STRAIGHT"<< endl;
+		if (L)leftSlope = (slope0+slope1)/2;
+		else if (LoL || RoL) leftSlope = slope0+slope1;
+		if (R) rightSlope = (slope2+slope3)/2;
+		else if (LoR || RoR) rightSlope = slope2+slope3;
 
-	//scale steering
-	steeringOut = steering / 100.0;
+		if (L && R) direction = (leftSlope + rightSlope)/2;
+		else if (LoL||RoL||LoR||RoR) direction = (leftSlope + rightSlope)/2;
 
-	confidence = LoL + LoR + RoL + RoR;
-	cout << "Steering = " << steeringOut << endl;
-	cout << "Confidence = " << confidence << endl;
-	cout << "Cols" << image_thresholded.cols << endl;
-	cout << "Rows" << image_thresholded.rows << endl;
+		if (direction > 0)
+			{
+			steering++;
+			cout<< "GOING LEFT"<<endl;
+			}
+		if (direction < 0){
+			steering--;
+			cout<<"GOING RIGHT"<<endl;
+		}
+
+		if (direction == 0 ) {
+			steering = 0;
+			cout<<"GOING STRAIGHT"<<endl;
+
+		}
+
+		if (steering > 100)
+			steering = 100;
+		if (steering < -100)
+			steering = -100;
+		steeringOut = steering / 1000.0;
+		if (steering < 0)cout << "HEADING RIGHT" << endl;
+		if (steering > 0)
+			cout << "HEADING LEFT" << endl;
+		if (steering == 0)cout << "HEADING STRAIGHT" << endl;
+
+
+		cout << "Steering = " << steeringOut << endl;
+
 
 	}
-
 	/*
 	 float(calculateDirection){
 
@@ -690,6 +711,7 @@ void getDirection(void) {
 			row = row - betweenRow;
 		}
 	}
+
 	void displayWindows(void) {
 
 		//Display image
@@ -746,6 +768,45 @@ void getDirection(void) {
 		namedWindow("Direction", CV_WINDOW_NORMAL);
 		cvMoveWindow("Direction", 0, 0);
 		imshow("Direction", image_direction);
+
+//Display H image
+		namedWindow("Hue", CV_WINDOW_NORMAL);
+		cvMoveWindow("Hue", 720, 600);
+		imshow("Hue", image_H);
+
+		//Display S image
+		namedWindow("Saturation", CV_WINDOW_NORMAL);
+		cvMoveWindow("Saturation", 720, 600);
+		imshow("Saturation", image_S);
+
+		//Display Value thresholded image
+		namedWindow("Value ", CV_WINDOW_NORMAL);
+		cvMoveWindow("Value ", 720, 600);
+		imshow("Value Threshold", image_V);
+
+		//Display R image
+		namedWindow("Red", CV_WINDOW_NORMAL);
+		cvMoveWindow("Red", 720, 600);
+		imshow("Red", image_R);
+
+		//Display G image
+		namedWindow("Green", CV_WINDOW_NORMAL);
+		cvMoveWindow("Green", 720, 600);
+		imshow("Green", image_G);
+
+		//Display B image
+		namedWindow("Blue", CV_WINDOW_NORMAL);
+		cvMoveWindow("Blue", 720, 600);
+		imshow("Blue", image_B);
+
+
+		//Display B image
+
+		namedWindow("No G", CV_WINDOW_NORMAL);
+		cvMoveWindow("No G", 720, 600);
+	    imshow("No G", image_noG);
+
+
 
 	}
 
@@ -881,8 +942,8 @@ void getDirection(void) {
 			lastValue = Mit;
 		}
 		lineCount = ceil(transitionCount / 2.0);
-		cout << "Number of Transitions: " << transitionCount << endl;
-		cout << "Number of Lines: " << lineCount << endl;
+		//cout << "Number of Transitions: " << transitionCount << endl;
+		//cout << "Number of Lines: " << lineCount << endl;
 		if (mode == 0)
 			return lineCount;
 		if (mode == 1)
@@ -946,7 +1007,7 @@ void getDirection(void) {
 		filestream.close();
 	}
 
-	void showHSVHistograms(Mat image) {
+			void showHSVHistograms(Mat image) {
 
 		vector<Mat> channels;
 
@@ -970,7 +1031,32 @@ void getDirection(void) {
 
 		histogram_V = showHistogram4(image_V, 255, 0);
 		threshold(image_V, image_VThresh, 0, 255, THRESH_OTSU | THRESH_BINARY);
+
+		Mat inGreenRange;
+		Mat testRGB;
+		//void inRange(InputArray src, InputArray lowerb, InputArray upperb, OutputArray dst)
+		//cout<<image_H<<endl;
+
+		inRange(image_H, 200,255,image_thresholded);
+
+		//Split image into RGB
+		vector<Mat> RGBchannels;
+		Mat image_BnoG;
+		//cvtColor(image, image_HSV,CV_RGB2HSV);
+		//inRange(image_H,50, 70, testRGB);
+		split(image, RGBchannels);
+		image_R = RGBchannels[0];
+		image_G = RGBchannels[1];
+		image_B = RGBchannels[2];
+		subtract(image_R, image_G, image_noG);
+		subtract(image_B, image_G, image_BnoG);
+		add(image_noG,image_BnoG, image_noG);
+		//threshold(image_noG, image_thresholded, 7, max_BINARY_value, THRESH_BINARY);
+
+		//merge(RGBchannels, image_noG);
+
 	}
+
 
 	cv::Mat showHistogram2(const cv::Mat &inImage) {
 
