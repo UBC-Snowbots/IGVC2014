@@ -78,7 +78,7 @@ void lidar_state_callback(const geometry_msgs::Twist::ConstPtr& msg)
 }
 
 //callback for gps directions
-void gps_callback(const geometry_msgs::Twist::ConstPtr& msg) 
+void gps_callback(const geometry_msgs::Twist::ConstPtr& msg) // should we change to carcommand? The twist msg here outputs into a topic called "vision_vel"
 {
 	ROS_INFO("\nGot back: [Lin.x = %f, Lin.y = %f, Ang.z = %f]", msg->linear.x, msg->linear.y, msg->angular.z);
 	gps_command.throttle = msg->linear.y;
@@ -136,7 +136,7 @@ int main( int argc, char** argv )
         //publshing data to robot
        // ROS_INFO("sending throttle=%f, steering=%f", twist_msg.linear.x, twist_msg.angular.z);
 
-	      geometry_msgs::Twist car_msg = driver();
+	geometry_msgs::Twist car_msg = driver();
         car_pub.publish(car_msg);
         
         //checking callbacks and sleeping to match loop rate
