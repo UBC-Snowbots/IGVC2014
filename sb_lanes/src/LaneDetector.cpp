@@ -49,23 +49,32 @@ static const string NODE_NAME = "LaneDetector";
 static const string PUBLISH_TOPIC = "vision_vel";
 static const string PUBLISH_TOPIC2 = "vision_nav";
 const int MSG_QUEUE_SIZE = 20;
-int dx = 0;
-int dy = 0;
-float steering = 0;
-float steeringOut = 0;
-float throttle = 0.25;
-int priority = 0;
-float direction = 0;
+
+
 
 //---VISION---------------------
+
 Mat image, image_grey, image_filter, image_thresholded, image_canny, image_blur,
 		image_blur2, image_direction;
-Mat image_H, image_S, image_V, image_histo, image_HThresh, image_SThresh,
-		image_VThresh;
+Mat image_H, image_S, image_V, image_R, image_G, image_B, image_histo, image_HThresh, image_SThresh,
+		image_VThresh, image_noG;
 Mat histogram_H, histogram_S, histogram_V;
-int const threshold_value = 200;
-int blur_value = 2;
+//float direction[3] = { 0, 0, 0 }; // x,y,z using right handed co-ordinate system, + z rotate counter clockwise
+int const threshold_value = 195;
+int const upperBound = 255;
+int const lowerBound = 180;
+int blur_value = 6;
 int const max_BINARY_value = 255;
+int dx = 0;
+int dy = 0;
+float steeringOut = 0;
+float steering = 0;
+float steeringIncrement = 0.1; //TODO: is this steering too strong?
+int priority = 0;
+float direction = 0;
+int noLinesWait = 0;
+float throttle = 0.25; // TODO: is this throttle too strong?
+float lowThrottle = 0.1;
 // --END VISION -------
 
 int main(int argc, char **argv)
@@ -187,8 +196,8 @@ void filterImage(void) {
 
 	//Threshold the image: 3 different options
 	//Regular threshold
-	threshold(image_blur2, image_thresholded, threshold_value, max_BINARY_value,
-			THRESH_BINARY);
+	//threshold(image_blur2, image_thresholded, threshold_value, max_BINARY_value,
+	//		THRESH_BINARY);
 	//Adaptive threshold
 	//adaptiveThreshold(image_blur2, image_thresholded,255, CV_ADAPTIVE_THRESH_GAUSSIAN_C, CV_THRESH_BINARY,71, 15);
 	//Otsu threshold
@@ -197,6 +206,7 @@ void filterImage(void) {
 	//Canny Edge detection
 	Canny(image_thresholded, image_canny, 50, 200, 3);
 }
+
 void getDirection(void) {
 
 	int rows2Check = 14;
@@ -535,8 +545,6 @@ void getDirection(void) {
 			Bchecked3.release();
 		}
 
-
-
 		// Crikey!
 		float minSlope = .1;
 		bool LoL = (slope0 < -minSlope)||(slope0 > minSlope ); // these values we chosen to reduce errors
@@ -551,29 +559,45 @@ void getDirection(void) {
 
 		// Perform HitTest if hit set priority to 1 & move away
 		int robotPosy = image_thresholded.cols + 300; //TODO: alter this parameter
-		priority = 0;
+		if(LoL||RoL||LoR||RoR) priority = 0;
 		if (LoL && ((robotPosy - yIntercept0)/ slope0) > 1/3*image_thresholded.cols){
 			priority = 1;
-			steering++;
-
+			throttle = lowThrottle;
+			steering = steeringIncrement;
 		}
 		else if (RoL && ((robotPosy - yIntercept1)/ slope1) > 1/3*image_thresholded.cols){
 			priority = 1;
-			steering++;
-
+			throttle = lowThrottle;
+			steering = steeringIncrement;
 		}
 		else if (LoR && ((robotPosy - yIntercept2)/slope2) < 2/3*image_thresholded.cols){
 			priority = 1;
-			steering--;
-
+			throttle = lowThrottle;
+			steering = -steeringIncrement;
 		}
 		else if (RoR && ((robotPosy - yIntercept3)/slope3) < 2/3*image_thresholded.cols){
 			priority = 1;
-			steering--;
+			throttle = lowThrottle;
+			steering = -steeringIncrement;
+		}
+		else if (!LoL&&!RoL&&!LoR&&!RoR)
+		{
+			cout<<"NO LINES DETECTED, WAITING"<<endl;
+			noLinesWait++;
+			throttle = lowThrottle;
+			steering = 0;
+			waitKey(1); //Should this be here? Consult with others
+			if (noLinesWait > 100) //TODO: is this enough?
+			{
+				priority = -1;
+				noLinesWait = 0;
+			}
 		}
 		if (priority == 1) {cout<<" ABOUT TO HIT LINE" << endl; return;}
-
+		if (priority == -1) {cout<<"NO LINES DETECTED FOR EXTENDED PEROID SWITCHING TO GPS" << endl; return;}
 		// Otherwise perform direction test and move
+
+
 		float leftSlope = 0;
 		float rightSlope = 0;
 
@@ -587,20 +611,17 @@ void getDirection(void) {
 
 		if (direction > 0)
 			{
-			steering++;
+			steering = steeringIncrement;
 			cout<< "GOING LEFT"<<endl;
 			}
 		if (direction < 0){
-			steering--;
+			steering = -steeringIncrement;
 			cout<<"GOING RIGHT"<<endl;
 		}
-
 		if (direction == 0 ) {
 			steering = 0;
 			cout<<"GOING STRAIGHT"<<endl;
-
 		}
-
 		if (steering > 100)
 			steering = 100;
 		if (steering < -100)
@@ -608,14 +629,13 @@ void getDirection(void) {
 		steeringOut = steering / 100.0;
 		if (steering < 0)cout << "HEADING RIGHT" << endl;
 		if (steering > 0)
-			cout << "HEADING LEFT" << endl;
+		cout << "HEADING LEFT" << endl;
 		if (steering == 0)cout << "HEADING STRAIGHT" << endl;
-
-
 		cout << "Steering = " << steeringOut << endl;
-
+		cout << "Throttle = " << throttle <<endl;
 
 	}
+
 	/*
 	 float(calculateDirection){
 
@@ -698,6 +718,7 @@ void getDirection(void) {
 			row = row - betweenRow;
 		}
 	}
+
 	void displayWindows(void) {
 
 		//Display image
@@ -754,6 +775,45 @@ void getDirection(void) {
 		namedWindow("Direction", CV_WINDOW_NORMAL);
 		cvMoveWindow("Direction", 0, 0);
 		imshow("Direction", image_direction);
+
+//Display H image
+		namedWindow("Hue", CV_WINDOW_NORMAL);
+		cvMoveWindow("Hue", 720, 600);
+		imshow("Hue", image_H);
+
+		//Display S image
+		namedWindow("Saturation", CV_WINDOW_NORMAL);
+		cvMoveWindow("Saturation", 720, 600);
+		imshow("Saturation", image_S);
+
+		//Display Value thresholded image
+		namedWindow("Value ", CV_WINDOW_NORMAL);
+		cvMoveWindow("Value ", 720, 600);
+		imshow("Value Threshold", image_V);
+
+		//Display R image
+		namedWindow("Red", CV_WINDOW_NORMAL);
+		cvMoveWindow("Red", 720, 600);
+		imshow("Red", image_R);
+
+		//Display G image
+		namedWindow("Green", CV_WINDOW_NORMAL);
+		cvMoveWindow("Green", 720, 600);
+		imshow("Green", image_G);
+
+		//Display B image
+		namedWindow("Blue", CV_WINDOW_NORMAL);
+		cvMoveWindow("Blue", 720, 600);
+		imshow("Blue", image_B);
+
+
+		//Display B image
+
+		namedWindow("No G", CV_WINDOW_NORMAL);
+		cvMoveWindow("No G", 720, 600);
+	    imshow("No G", image_noG);
+
+
 
 	}
 
@@ -954,7 +1014,7 @@ void getDirection(void) {
 		filestream.close();
 	}
 
-	void showHSVHistograms(Mat image) {
+			void showHSVHistograms(Mat image) {
 
 		vector<Mat> channels;
 
@@ -978,7 +1038,32 @@ void getDirection(void) {
 
 		histogram_V = showHistogram4(image_V, 255, 0);
 		threshold(image_V, image_VThresh, 0, 255, THRESH_OTSU | THRESH_BINARY);
+
+		Mat inGreenRange;
+		Mat testRGB;
+		//void inRange(InputArray src, InputArray lowerb, InputArray upperb, OutputArray dst)
+		//cout<<image_H<<endl;
+
+		inRange(image_H, 90,150,image_thresholded);
+
+		//Split image into RGB
+		vector<Mat> RGBchannels;
+		Mat image_BnoG;
+		//cvtColor(image, image_HSV,CV_RGB2HSV);
+		//inRange(image_H,50, 70, testRGB);
+		split(image, RGBchannels);
+		image_R = RGBchannels[0];
+		image_G = RGBchannels[1];
+		image_B = RGBchannels[2];
+		subtract(image_R, image_G, image_noG);
+		subtract(image_B, image_G, image_BnoG);
+		add(image_noG,image_BnoG, image_noG);
+		//threshold(image_noG, image_thresholded, 7, max_BINARY_value, THRESH_BINARY);
+
+		//merge(RGBchannels, image_noG);
+
 	}
+
 
 	cv::Mat showHistogram2(const cv::Mat &inImage) {
 
