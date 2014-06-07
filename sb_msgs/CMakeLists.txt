@@ -55,6 +55,10 @@ find_package(catkin REQUIRED COMPONENTS
    RobotState.msg
    IMU.msg
    gps.msg
+   jausin.msg
+   jausout.msg
+   Pose.msg
+   Velocity.msg
  )
 
 ## Generate services in the 'srv' folder
