@@ -86,7 +86,7 @@ int main(int argc, char** argv)
 	    }
 	}
 	
-	usleep(1*SECOND);
+	usleep(20*SECOND);
 		
 	//subscribers and publishers
 	Subscriber car_command = n.subscribe(CAR_COMMAND_TOPIC, 1, car_command_callback);
@@ -152,9 +152,9 @@ int main(int argc, char** argv)
 	    //read from arduino
 	    //processData(link.readData(), state);
 
-		cout << link.readData(38) <<"\n";
+		//cout << link.readData(38) <<"\n";
 
-		link.clearBuffer();
+	    //link.clearBuffer();
 	    //populate GUI data
 	    //TODO
 	    
@@ -162,6 +162,7 @@ int main(int argc, char** argv)
 	    robot_state.publish(state);
 	    
 	    gps_data.data = link.readData(38);
+	    cout << "GPS DATA " << gps_data.data << endl; // print out gps datas
 	    gps_state.publish(gps_data);
 	    
 	    //clear buffer (MAY NOT WORK)
@@ -195,7 +196,7 @@ void processData(string data,sb_msgs::RobotState &state)
 //car_command_callback
 void car_command_callback(const geometry_msgs::TwistConstPtr& msg_ptr)
 {
-	mech.twist_x = msg_ptr->linear.x * 125+125;
+	mech.twist_x = 125;//msg_ptr->linear.x * 125+125;
 	mech.twist_y = msg_ptr->linear.y * 125+125;
 	mech.twist_z = -msg_ptr->angular.z * 125+125;
 

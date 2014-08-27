@@ -2,11 +2,12 @@
  * lidar_force_nav
  * Intelligent Ground Vehicle Challenge 2014
  * Oakland University - Rochester, Michigan
- * 
- * UBC Snowbots
  * June 2014
+ * 
+ * UBC Snowbots -- Team Avalanche
+ * University of British Columbia
+ *
  */
-
 
 #include <math.h>
 #include <iostream>
@@ -20,17 +21,26 @@ using namespace ros;
 using namespace std;
 
 //Global constatns
-static const double IGNORE_ANGLE = 3.1415265; //pi radians = 90 degrees
-static const int    OFFSET_ANGLE = 20;        // offset from central ray
-static const double REDZONE      = 0.5;
+static const double PI		 = 3.1415265;
+static const double IGNORE_ANGLE = PI; //pi radians = 180 degrees
+static const int    OFFSET_RAYS = 30;        // offset from central ray
+static const double REDZONE      = 1.0;
+static const double ORANGEZONE   = 2.0;
+static const double SLOW_SPEED	 = 0.1;
+static const double SPEED_LIMIT  = 0.3;
 
 //ros related constants
-static const string NODE_NAME       = "lidar_nav";
+static const string NODE_NAME       = "lidar_node";
+
 static const string SUBSCRIBE_TOPIC = "scan";
-static const string PUBLISH_TOPIC   = "commander";
+static const string PUBLISH_TOPIC   = "lidar_nav";
 static int LOOP_FREQ = 30;
+
+
 geometry_msgs::Vector3 directions;
 sb_msgs::CarCommand car_command;
+
+int danger = 0;
 
 double clamp (double in, double cap)
 {
@@ -51,18 +61,26 @@ void callback(const sensor_msgs::LaserScanConstPtr& msg_ptr)
 	{
 		float angle = msg_ptr->angle_min + i*(msg_ptr->angle_increment);
 		float dist = msg_ptr->ranges[i];
-
-		if(angle < -IGNORE_ANGLE || angle > IGNORE_ANGLE)
+		if(angle < -IGNORE_ANGLE)
+		{
 			continue;
-		if(dist > msg_ptr->range_max)
+		}
+		if(angle > IGNORE_ANGLE)
+		{
 			continue;
+		}
+		if(dist == msg_ptr->range_max)
+		{
+			continue;
+		}
 
 		if (dist != 0 && isinf(dist) == 0 && isnan(dist) == 0)
 		{
 			float force = -1.0/dist;
 			if (isnan(cos(angle)) == false && isnan(sin(angle)) == false)
 			{
-				x_total += force * cos(angle);
+			//	x_total += force * cos(angle);
+				x_total += 1 / (force * cos(angle));
 				y_total += force * sin(angle);
 				valid_rays++;
 			}
@@ -71,7 +89,11 @@ void callback(const sensor_msgs::LaserScanConstPtr& msg_ptr)
 	if(valid_rays <= 0)
 	{
 		ROS_FATAL("No valid rays found");
-		return;
+		danger = 0;
+		car_command.throttle =  SPEED_LIMIT;
+		car_command.steering =   0;
+		car_command.priority = 0.5;
+		//return;
 	}
 
 	if (valid_rays != 0)
@@ -81,16 +103,36 @@ void callback(const sensor_msgs::LaserScanConstPtr& msg_ptr)
 	//	directions.z = 0;
 	//	directions.x = clamp(directions.x);
 	//	directions.y = clamp(directions.y);
-		car_command.throttle = -1 * x_total / valid_rays;
-		car_command.steering =  1 * y_total / valid_rays;
+
+	/*	float min_force = -1/4;
+		float max_force = -1/0.02;
+		
+	*/	
+		if (danger == 0)		
+			car_command.throttle =  -1 * x_total / valid_rays / 20;
+	//	car_command.steering =   1 * y_total / valid_rays / 20;
 		car_command.priority = 0.5;
-		car_command.throttle = clamp(car_command.throttle, 0.5);
+	
+		if (abs(y_total) < 90)
+			car_command.steering = 0;
+		else if (y_total < 110)
+			if   (y_total < 0) car_command.steering = -0.1;
+			else car_command.steering = 0.1;
+		else if (y_total > 110)
+			if   (y_total < 0) car_command.steering = -0.3;
+			else car_command.steering = 0.3;
+	
+		if ( car_command.throttle > 3500 )
+			car_command.throttle = SLOW_SPEED;
+		car_command.throttle = clamp(car_command.throttle, SPEED_LIMIT);
 		car_command.steering = clamp(car_command.steering, 1);
-	//	printf("x_total: %f   y_total: %f\n", x_total, y_total);
+		
+		ROS_INFO("x_total:  %f\t y_total:  %f\tthrottle: %f\t steering: %f", x_total, y_total, car_command.throttle, car_command.steering);	
 	}
 
 	// check for blockages
-	for(int i =num_rays-OFFSET_ANGLE; i < num_rays+OFFSET_ANGLE;i++)
+		
+	for(int i =num_rays/2-OFFSET_RAYS; i < num_rays/2+OFFSET_RAYS;i++)
 	{
 		float angle = msg_ptr->angle_min + i*(msg_ptr->angle_increment);
 		float dist = msg_ptr->ranges[i];
@@ -98,11 +140,22 @@ void callback(const sensor_msgs::LaserScanConstPtr& msg_ptr)
 		if (dist < REDZONE)
 		{
 			// stop moving forward
-			// directions.x = 0;
 			car_command.throttle = 0;
-			car_command.priority = 1;		
-		}		
+			car_command.priority = 1;
+			danger = 1;		
+		}
+		else if (dist < ORANGEZONE)
+		{
+			car_command.throttle = SLOW_SPEED;
+			car_command.priority = 0.8;
+			danger = 1;
+		}
+		else
+		{
+			danger = 0;
+		}
 	}
+	
 }
 
 geometry_msgs::Twist twist_converter(sb_msgs::CarCommand cc)
@@ -132,7 +185,8 @@ int main (int argc, char** argv)
 
 	Subscriber lidar_state = n.subscribe(SUBSCRIBE_TOPIC,20,callback);
 	
-	Publisher car_pub = n.advertise<geometry_msgs::Twist>(PUBLISH_TOPIC,1);
+	Publisher car_pub = n.advertise<sb_msgs::CarCommand>(PUBLISH_TOPIC,1);
+	
 	Rate loop_rate(LOOP_FREQ);
 	ROS_INFO("ready to go");
 	
@@ -141,11 +195,11 @@ int main (int argc, char** argv)
 	{
 	//	geometry_msgs::Twist twistMsg = twist_converter(car_command);
 	//	ROS_INFO("the twist vector is %f , %f", twistMsg.linear.y, twistMsg.angular.z);
-		ROS_INFO("CarCommand - throttle: %f , steering: %f , priority: %f", car_command.throttle, car_command.steering, car_command.priority); 
+	//	ROS_INFO("CarCommand {throttle: %0.2f , steering: %0.2f , priority: %0.2f}", car_command.throttle, car_command.steering, car_command.priority); 
 		car_pub.publish(car_command);
-	  	ros::spinOnce();
-    		loop_rate.sleep();	
-  	}
+	  ros::spinOnce();
+    loop_rate.sleep();	
+  }
   ROS_INFO("shutting down node");
   
   return 0;

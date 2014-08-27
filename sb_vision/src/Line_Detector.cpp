@@ -46,7 +46,10 @@ int blur_value = 4;
 int const max_BINARY_value = 255;
 int dx = 0;
 int dy = 0;
+float steeringOut = 0;
 float steering = 0;
+int priority = 0;
+float direction = 0;
 
 //TODO: publish message
 
@@ -166,7 +169,7 @@ void getDirection(void) {
 	int rows2Check = 14;
 	int minConstraint = 8; // need this many, or more point to define a line
 	int distanceBetweenRows = image.rows / 20;
-	int const startRow = image.rows / 2 + distanceBetweenRows*7; //TODO: adjust for camera angle
+	int const startRow = image.rows / 2 + distanceBetweenRows*9; //TODO: adjust for camera angle
 	int row = startRow;
 
 	Point points[rows2Check][4];
@@ -414,11 +417,10 @@ void getDirection(void) {
 				X2Count++;
 			}
 		}
-
 		cout << "X2 checked" << Xchecked2 << endl;
 		cout << "Y2 checked" << Ychecked2 << endl;
 		if (X2Count >= minConstraint) {
-			solve(Xchecked2, Ychecked2, Bchecked2, DECOMP_NORMAL);
+			solve(Xchecked2, Ychecked2, Bchecked2, DECOMP_QR);
 
 			cout << "B2 checked = " << endl << Bchecked2 << endl;
 			//want to stream line this by putting points directly into Mat, but for now just going to get something that works
@@ -460,12 +462,13 @@ void getDirection(void) {
 				X3Count++;
 			}
 		}
+
 		//want to stream line this by putting points directly into Mat, but for now just going to get something that works
 
 		cout << "X3 checked" << Xchecked3 << endl;
 		cout << "Y3 checked" << Ychecked3 << endl;
 		if (X3Count >= minConstraint) {
-			solve(Xchecked3, Ychecked3, Bchecked3, DECOMP_NORMAL);
+			solve(Xchecked3, Ychecked3, Bchecked3, DECOMP_QR);
 
 			cout << "B3 checked = " << endl << Bchecked3 << endl;
 			// Next we need to calculate how much we want to shift by: using the line equation obtained in matrix B we can calculate the
@@ -485,93 +488,87 @@ void getDirection(void) {
 				line(image_direction, Intercept0, Intercept640,
 						CV_RGB(250, 100, 255), 1, CV_AA);
 			}
+			Xchecked0.release();
+			Ychecked0.release();
+			Bchecked0.release();
+			Xchecked1.release();
+		    Ychecked1.release();
+			Bchecked1.release();
+			Xchecked2.release();
+			Ychecked2.release();
+			Bchecked2.release();
+			Xchecked3.release();
+		    Ychecked3.release();
+			Bchecked3.release();
 		}
+
+
 
 		// Crikey!
-		bool LoL = (yIntercept0 != 0);
-		bool RoL = (yIntercept1 != 0);
-		bool LoR = (yIntercept2 != 0);
-		bool RoR = (yIntercept3 != 0);
+		float minSlope = .1;
+		bool LoL = (slope0 < -minSlope)||(slope0 > minSlope ); // these values we chosen to reduce errors
+		bool RoL = (slope1 < -minSlope)||(slope1 > minSlope );
+		bool LoR = (slope2 < -minSlope)||(slope2 > minSlope );
+		bool RoR = (slope3 < -minSlope)||(slope3 > minSlope );
+		bool R; //  right line detected?
+		bool L; // left line detected?
 
-		float confidence = 0.1;
-		int minDist = 300; //TODO: adjust this for optimum line following
-		int maxDist = 500;
+		if (LoL && RoL) L = 1;
+		if (LoR && RoR) R = 1;
 
-		int steeringIncrement = 10;
+		// Perform HitTest if hit set priority to 1 & move away
+		int robotPosy = image_thresholded.cols + 300; //TODO: alter this parameter
+		priority = 0;
+		if (LoL && ((robotPosy - yIntercept0)/ slope0) > 1/3*image_thresholded.cols){
+			priority = 1;
+			steering++;
 
-		if (LoL) {
-			if (((640 - yIntercept0) / slope0) >= (image.cols / 2 - minDist)) {
-				steering = steering - steeringIncrement;
-			} else if ((640 - yIntercept0) / slope0
-					< (image.cols / 2 - maxDist)) {
-				steering = steering + steeringIncrement;
-				;
-			} else {
-				if (steering > 0)
-					steering = steering - steeringIncrement;
-				if (steering < 0)
-					steering = steering + steeringIncrement;
-			}
-
-		} else if (RoL) {
-			if ((640 - yIntercept1) / slope1 >= (image.cols / 2 - minDist)) {
-				steering = steering - steeringIncrement;
-			} else if ((640 - yIntercept1) / slope1
-					< (image.cols / 2 - maxDist)) {
-				steering = steering + steeringIncrement;
-
-			} else {
-				if (steering > 0)
-					steering = steering - steeringIncrement;
-				if (steering < 0)
-					steering = steering + steeringIncrement;
-			}
-		} else if (LoR) {
-			if ((640 - yIntercept2) / slope2 <= (image.cols / 2 + minDist)) {
-				steering = steering + steeringIncrement;
-			}
-			if ((640 - yIntercept2) / slope2 > (image.cols / 2 + maxDist)) {
-				steering = steering - steeringIncrement;
-				;
-			} else {
-				if (steering > 0)
-					steering = steering - steeringIncrement;
-				if (steering < 0)
-					steering = steering + steeringIncrement;
-			}
-		} else if (RoR) {
-			if ((640 - yIntercept3) / slope3 <= (image.cols / 2 + minDist)) {
-				steering = steering - steeringIncrement;
-			}
-			if ((640 - yIntercept3) / slope3 > (image.cols / 2 + maxDist)) {
-				steering = steering + steeringIncrement;
-
-			} else {
-				if (steering > 0)
-					steering = steering - steeringIncrement;
-				if (steering < 0)
-					steering = steering + steeringIncrement;
-			}
 		}
+		else if (RoL && ((robotPosy - yIntercept1)/ slope1) > 1/3*image_thresholded.cols){
+			priority = 1;
+			steering++;
+
+		}
+		else if (LoR && ((robotPosy - yIntercept2)/slope2) < 2/3*image_thresholded.cols){
+			priority = 1;
+			steering--;
+
+		}
+		else if (RoR && ((robotPosy - yIntercept3)/slope3) < 2/3*image_thresholded.cols){
+			priority = 1;
+			steering--;
+		}
+		if (priority == 1) {cout<<" ABOUT TO HIT LINE" << endl; return;}
+
+		// Otherwise perform direction test and move
+		float leftSlope = 0;
+		float rightSlope = 0;
+
+		if (L)leftSlope = (slope0+slope1)/2;
+		else if (LoL || RoL) leftSlope = slope0+slope1;
+		if (R) rightSlope = (slope2+slope3)/2;
+		else if (LoR || RoR) rightSlope = slope2+slope3;
+
+		if (L && R) direction = (leftSlope + rightSlope)/2;
+		else if (LoL||RoL||LoR||RoR) direction = (leftSlope + rightSlope)/2;
+
+		if (direction > 0) steering--;
+		if (direction < 0) steering++;
+		if (direction == 0 ) steering = 0;
+
 		if (steering > 100)
 			steering = 100;
 		if (steering < -100)
 			steering = -100;
-		if (steering < 0)
-			cout << "GO RIGHT" << endl;
+		steeringOut = steering / 100.0;
+		if (steering < 0)cout << "GOING RIGHT" << endl;
 		if (steering > 0)
-			cout << "GO LEFT" << endl;
-		if (steering == 0)
-			cout << "GO STRAIGHT" << endl;
+			cout << "GOING LEFT" << endl;
+		if (steering == 0)cout << "GOING STRAIGHT" << endl;
 
-		//scale steering
-		float steeringOut = steering / 100.0;
 
-		confidence = LoL + LoR + RoL + RoR;
 		cout << "Steering = " << steeringOut << endl;
-		cout << "Confidence = " << confidence << endl;
-		cout << "Cols" << image_thresholded.cols << endl;
-		cout << "Rows" << image_thresholded.rows << endl;
+
 
 	}
 

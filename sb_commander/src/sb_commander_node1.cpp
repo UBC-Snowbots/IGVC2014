@@ -2,10 +2,9 @@
  * Commander Node
  * Intelligent Ground Vehicle Challenge 2014
  * Oakland University - Rochester, Michigan
- * June 2014
  * 
- * UBC Snowbots -- Team Avalanche
- * University of British Columbia
+ * Team UBC Snowbots
+ * University of British Columbia - Vancouver, BC
  *
  */
 
@@ -35,15 +34,15 @@ using namespace std;
 
 struct NavCommand
 {
-    NavCommand() : throttle(0), steering(0), priority(-2) {}
+    NavCommand() : throttle(0), steering(0), priority(0) {}
     double throttle;
     double steering;
     double priority;
 };
 
 // ROS-related Constants
-static const string NODE_NAME               = "commander_node";
-static const string CAR_PUBLISH_TOPIC       = "vision_vel";
+static const string NODE_NAME               = "commander";
+static const string CAR_PUBLISH_TOPIC       = "cmd_vel";
 static const string LIDAR_SUBSCRIBE_TOPIC   = "lidar_nav";  // lidar_nav node suggestion
 static const string VISION_SUBSCRIBE_TOPIC  = "vision_nav"; // vision_nav node suggestion
 static const string GPS_SUBSCRIBE_TOPIC     = "gps_nav";    // gps_nav node
@@ -53,20 +52,19 @@ NavCommand lidar_command;
 NavCommand vision_command;
 NavCommand gps_command;
 
-//double throttle = 0;
-//double steering = 0; // 1 is right, 30 shown on arduino driver (real world), -1 is left
+double throttle = 0;
+double steering = 0; // 1 is right, 30 shown on arduino driver (real world), -1 is left
 
 bool stopSignFlag = false;
 bool redLightFlag = false;
-/*
+
 void Stop()
 {
 	throttle = 0;
 	steering = 0;		
 }
-*/
-//callback for vision directions
 
+//callback for vision directions
 void vision_callback(const sb_msgs::CarCommand::ConstPtr& msg)
 {
   vision_command.throttle = msg->throttle;
@@ -78,15 +76,12 @@ void vision_callback(const sb_msgs::CarCommand::ConstPtr& msg)
 //callback for lidar directions
 void lidar_state_callback(const sb_msgs::CarCommand::ConstPtr& msg)
 {
-  ROS_INFO("RUNNING LIDAR CALLBACK!");
-  cout << "test" << endl;
   lidar_command.throttle = msg->throttle;
   lidar_command.steering = msg->steering;
   lidar_command.priority = msg->priority;
 }
 
 //callback for gps directions
-
 void gps_callback(const sb_msgs::CarCommand::ConstPtr& msg) 
 {
 	//ROS_INFO("\nGot back: [Lin.x = %f, Lin.y = %f, Ang.z = %f]", msg->linear.x, msg->linear.y, msg->angular.z);
@@ -115,72 +110,46 @@ geometry_msgs::Twist driver()
 				else use gps
 		*/
 		
-		ROS_INFO("lidar: %0.2f, vision: %0.2f, gps: %0.2f", lidar_command.priority, vision_command.priority, gps_command.priority);
+		//TODO: add lidar priority state: 0.8 - objects close than 2 meters
+		//TODO: change priority state 1 - threshold 1 meter
 		
-		//  Check and see if any of the sensors are giving out data
-		if (lidar_command.priority == -2 && vision_command.priority == -2 && gps_command.priority == -2)
-		{
-		  car_msg.linear.y  = 0;	//Throtle;
-		  car_msg.angular.z = 0;	//Steering;
-		  ROS_WARN("No Sensor Data. Waiting...");		
-		}
-		else if (lidar_command.priority != -2 && vision_command.priority == -2 && gps_command.priority == -2)
-		{
+		// objects detected too close to the robot
+    if (lidar_command.priority == 1)
+    {
 		  car_msg.linear.y  = lidar_command.throttle;	//Throtle;
 		  car_msg.angular.z = lidar_command.steering;	//Steering;
-		  ROS_INFO("Running on lidar_nav  - throttle: %0.2f, steering: %0.2f", car_msg.linear.y, car_msg.angular.z);		
-		}
-		else if (lidar_command.priority == -2 && vision_command.priority != -2 && gps_command.priority == -2)
-		{
-			car_msg.linear.y  = vision_command.throttle;	//Throtle;
-			car_msg.angular.z = vision_command.steering;	//Steering;
-			ROS_INFO("Running on vision_nav - throttle: %f, steering: %f", car_msg.linear.y, car_msg.angular.z);
-		}
-		else if (lidar_command.priority == -2 && vision_command.priority == -2 && gps_command.priority != -2)
-		{
-			car_msg.linear.y  = DEFAULT_SPEED;					//Throtle;
-			car_msg.angular.z = gps_command.steering;		//Steering;
-			ROS_INFO("Running on gps_nav    - throttle: %f, steering: %f", car_msg.linear.y, car_msg.angular.z);
-		}
-		else {
-			// objects detected too close to the robot
-		  if (lidar_command.priority == 1)
-		  {
+		  ROS_INFO("Running on lidar_nav - throttle: %f, steering: %f", car_msg.linear.y, car_msg.angular.z);
+    }
+    // lane follower doesn't see any lines
+    else if (vision_command.priority == -1)
+    {
+    	if (lidar_command.priority == 0.8)
+    	{
 				car_msg.linear.y  = lidar_command.throttle;	//Throtle;
 				car_msg.angular.z = lidar_command.steering;	//Steering;
 				ROS_INFO("Running on lidar_nav - throttle: %f, steering: %f", car_msg.linear.y, car_msg.angular.z);
-		  }
-		  // lane follower doesn't see any lines
-		  else if (vision_command.priority == -1)
-		  {
-		  	if (lidar_command.priority == 0.8)
-		  	{
-					car_msg.linear.y  = lidar_command.throttle;	//Throtle;
-					car_msg.angular.z = lidar_command.steering;	//Steering;
-					ROS_INFO("Running on lidar_nav - throttle: %f, steering: %f", car_msg.linear.y, car_msg.angular.z);
-				}
-				else
-				{
-					car_msg.linear.y  = DEFAULT_SPEED;					//Throtle;
-					car_msg.angular.z = gps_command.steering;		//Steering;
-					ROS_INFO("Running on gps_nav - throttle: %f, steering: %f", car_msg.linear.y, car_msg.angular.z);
-				}
-		  }
-		  else
-		  {
-		  	if (lidar_command.priority == 0.8)
-		  	{
-					car_msg.linear.y  = lidar_command.throttle;	//Throtle;
-					car_msg.angular.z = lidar_command.steering;	//Steering;
-					ROS_INFO("Running on lidar_nav - throttle: %f, steering: %f", car_msg.linear.y, car_msg.angular.z);
-				}
-				else
-				{
-					car_msg.linear.y  = vision_command.throttle;	//Throtle;
-					car_msg.angular.z = vision_command.steering;	//Steering;
-					ROS_INFO("Running on vision_nav - throttle: %0.2f, steering: %0.2f, priority: %0.2f", car_msg.linear.y, car_msg.angular.z, vision_command.priority);
-				}
-		  }
+			}
+			else
+			{
+				car_msg.linear.y  = DEFAULT_SPEED;					//Throtle;
+				car_msg.angular.z = gps_command.steering;		//Steering;
+				ROS_INFO("Running on gps_nav - throttle: %f, steering: %f", car_msg.linear.y, car_msg.angular.z);
+			}
+    }
+    else
+    {
+    	if (lidar_command.priority == 0.8)
+    	{
+				car_msg.linear.y  = lidar_command.throttle;	//Throtle;
+				car_msg.angular.z = lidar_command.steering;	//Steering;
+				ROS_INFO("Running on lidar_nav - throttle: %f, steering: %f", car_msg.linear.y, car_msg.angular.z);
+			}
+			else
+			{
+				car_msg.linear.y  = vision_command.throttle;	//Throtle;
+				car_msg.angular.z = vision_command.steering;	//Steering;
+				ROS_INFO("Running on vision_nav - throttle: %f, steering: %f", car_msg.linear.y, car_msg.angular.z);
+			}
     }
     
     return car_msg;
@@ -201,7 +170,7 @@ int main( int argc, char** argv )
     ros::Subscriber vision_State = n.subscribe(VISION_SUBSCRIBE_TOPIC, 20, vision_callback);
     ros::Subscriber GPS_State = n.subscribe(GPS_SUBSCRIBE_TOPIC, 20, gps_callback);
 
-    ros::Publisher car_pub = n.advertise<geometry_msgs::Twist>(CAR_PUBLISH_TOPIC, 20);
+    ros::Publisher car_pub = n.advertise<geometry_msgs::Twist>(CAR_PUBLISH_TOPIC, 1);
 
     //controls how fast it goes
     ros::Rate loop_rate(LOOP_FREQ);
@@ -221,7 +190,7 @@ int main( int argc, char** argv )
         //publshing data to robot
        // ROS_INFO("sending throttle=%f, steering=%f", twist_msg.linear.x, twist_msg.angular.z);
 
-	      geometry_msgs::Twist car_msg = driver();
+	geometry_msgs::Twist car_msg = driver();
         car_pub.publish(car_msg);
         
         //checking callbacks and sleeping to match loop rate

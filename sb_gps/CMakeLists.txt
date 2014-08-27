@@ -18,5 +18,8 @@ include_directories(${catkin_INCLUDE_DIRS})
 add_executable(sb_gps src/gps.cpp)
 target_link_libraries(sb_gps ${catkin_LIBRARIES})
 
+add_executable(sb_pub src/test_pub.cpp)
+target_link_libraries(sb_pub ${catkin_LIBRARIES})
+
 ## To add package paths:
 ## source ~/catkin_ws/devel/setup.bash

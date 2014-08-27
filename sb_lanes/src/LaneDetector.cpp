@@ -43,16 +43,18 @@ void displayWindows(void);
 void filterImage(void);
 void getDirection(void);
 float calculateDirection1();
+float chiSquared(Mat,Mat, float, float, int, int);
+
+
 //--END VISION------------------------
 //global strings for ros node and topic names
 static const string NODE_NAME = "LaneDetector";
 static const string PUBLISH_TOPIC = "vision_vel";
 static const string PUBLISH_TOPIC2 = "vision_nav";
 const int MSG_QUEUE_SIZE = 20;
-float throttle = 0.25;
-
 
 //---VISION---------------------
+
 Mat image, image_grey, image_filter, image_thresholded, image_canny, image_blur,
 		image_blur2, image_direction;
 Mat image_H, image_S, image_V, image_R, image_G, image_B, image_histo, image_HThresh, image_SThresh,
@@ -60,15 +62,33 @@ Mat image_H, image_S, image_V, image_R, image_G, image_B, image_histo, image_HTh
 Mat histogram_H, histogram_S, histogram_V;
 //float direction[3] = { 0, 0, 0 }; // x,y,z using right handed co-ordinate system, + z rotate counter clockwise
 int const threshold_value = 195;
-int blur_value = 5;
+
+int const upperBound = 255;
+int const lowerBound = 180;
+int blur_value = 8;
 int const max_BINARY_value = 255;
 int dx = 0;
 int dy = 0;
 float steeringOut = 0;
 float steering = 0;
+float steeringIncrement = 0.18; //TODO: is this steering too strong?
+float lowsteeringIncrement = 0.18;
 int priority = 0;
 float direction = 0;
 int noLinesWait = 0;
+float throttle = 0.35; // TODO: is this throttle too strong?
+float lowThrottle = 0.35;
+//int const ROWS2CHECK = 14;
+//int const MINCONSTRAINT = 6; // need this many, or more point to define a line
+//int const ROWS2CHECK = 28;
+///int const MINCONSTRAINT = 10; // need this many, or more point to define a line
+//int const DIVISOR = 40; //distanceBetweenRows = image.rows / DIVISOR;
+//int const MULTIPLIER = 20;// image.rows / 2 + distanceBetweenRows*MULTIPLIER; //TODO: adjust for camera angle
+//int const CHISQUAREDTHRESH = 25000000;
+//int lineState = 0; // 0 seeing both lines, 1 seeing right line, -1 seeing left line?
+//int lastL = 0;
+//int lastR = 0;
+
 // --END VISION -------
 
 int main(int argc, char **argv)
@@ -143,7 +163,9 @@ vision_nav.priority = 0;
 
 		//detectLines();
 
-		getDirection();
+		//getDirection();
+
+		simpleDir();
 
 		displayWindows();
 
@@ -169,6 +191,9 @@ vision_pub.publish(vision_nav);
  destroyAllWindows();
   return 0;
 }
+
+
+
 
 
 void filterImage(void) {
@@ -201,24 +226,29 @@ void filterImage(void) {
 	Canny(image_thresholded, image_canny, 50, 200, 3);
 }
 void getDirection(void) {
-
+/*
 	int rows2Check = 14;
-	int minConstraint = 8; // need this many, or more point to define a line
+	int minConstraint = 6; // need this many, or more point to define a line
 	int distanceBetweenRows = image.rows / 20;
-	int const startRow = image.rows / 2 + distanceBetweenRows*9; //TODO: adjust for camera angle
+	int const startRow = image.rows / 2 + distanceBetweenRows*4; //TODO: adjust for camera angle
+	int row = startRow;
+*/
+	int rows2Check = 28;
+	int minConstraint = 10; // need this many, or more point to define a line
+	int distanceBetweenRows = image.rows / 40;
+	int const startRow = image.rows/2+distanceBetweenRows*19; //TODO: adjust for camera angle
+	//int const startRow = distanceBetweenRows*19; 	
 	int row = startRow;
 
 	Point points[rows2Check][4];
 	int transitions[rows2Check];
 
 	int lastValue = (image_thresholded.at<uchar>(row, 0)) % 2;
+	//Check how many transitions occur in each row and put into array
 	int currentValue = 0;
-
-	int state = 1; // 0 we are out to the left, 1 we are inside the lines, 2 we are to the right of the lines
 
 	image_direction = image_thresholded.clone();
 
-	//Check how many transitions occur in each row and put into array
 	for (int i = 0; i < rows2Check; i++) {
 		transitions[i] = countLines(row, 1);
 		row = row - distanceBetweenRows;
@@ -246,7 +276,9 @@ void getDirection(void) {
 			//cout << "Error: More than 2 lines detected at row" << i << endl; // consider adjusting thresholding values here
 		} else {
 			for (int f = 0; f < image_thresholded.cols; f++) {
-
+				//lastL = L;
+				//lastR = R;
+				//if (lastL && !lastR)
 				currentValue = image_thresholded.at<uchar>(row, f) % 2;
 				if (currentValue != lastValue) {
 					//cout << "Transition at x = " << f << ", y = " << row	<< endl;
@@ -274,16 +306,18 @@ void getDirection(void) {
 							if ((lastValue == 1) && (currentValue == 0))
 								points[i][1] = centre; //RoL
 							else if ((lastValue == 0) && (currentValue == 1))
+								{
 								if (f <= image_thresholded.cols / 2)
 									points[i][0] = centre; //LoL
-							if (f > image_thresholded.cols / 2)
-								points[i][2] = centre; //LoR
+								if (f > image_thresholded.cols / 2)
+									points[i][2] = centre; //LoR
+								}
 							left = 1;
 						} else if (left == 1) {
 							if ((lastValue == 1) && (currentValue == 0)) {
 								if (f <= image_thresholded.cols / 2)
 									points[i][1] = centre; // RoL
-								if (f > image_thresholded.cols / 2)
+				    				if (f > image_thresholded.cols / 2)
 									points[i][3] = centre; //LoL
 							} else if ((lastValue == 0) && (currentValue == 1))
 								points[i][2] = centre; //LoR
@@ -346,8 +380,10 @@ void getDirection(void) {
 	float yIntercept1 = 0;
 	float yIntercept2 = 0;
 	float yIntercept3 = 0;
-
-
+	float chiSquared0 = 100000;
+	float chiSquared1 = 100000;
+	float chiSquared2 = 100000;
+	float chiSquared3 = 100000;
 	// 0 aka Left of Left -----------------------------
 
 	Mat Xchecked0;
@@ -385,8 +421,11 @@ void getDirection(void) {
 		float xIntercept0 = -yIntercept0 / slope0;
 		//cout << "xIntercept0 = " << xIntercept0 << endl;
 
-		if (yIntercept0 != 0) {
+		//if(yIntercept0 != 0)chiSquared0 = chiSquared(Xchecked0,Ychecked0, yIntercept0, slope0, X0Count,0);
+
+		//if ((yIntercept0 != 0) && (chiSquared0 < CHISQUAREDTHRESH)){
 			//Draw Line
+		if(yIntercept0 != 0){
 			Point Intercept0 = Point(xIntercept0, 0);
 			Point Intercept640 = Point((640 - yIntercept0) / slope0, 640);
 			line(image_direction, Intercept0, Intercept640,
@@ -428,7 +467,10 @@ void getDirection(void) {
 			float xIntercept1 = -yIntercept1 / slope1;
 		//	cout << "xIntercept1 = " << xIntercept1 << endl;
 
-			if (yIntercept1 != 0) {
+		//if(yIntercept1 != 0)chiSquared1 = chiSquared(Xchecked1,Ychecked1, yIntercept1, slope1, X1Count,1);
+
+		//	if ((yIntercept1 != 0) && (chiSquared1 < CHISQUAREDTHRESH)) {
+			if(yIntercept1 != 0){
 				//Draw Line
 				Point Intercept0 = Point(xIntercept1, 0);
 				Point Intercept640 = Point((640 - yIntercept1) / slope1, 640);
@@ -453,8 +495,10 @@ void getDirection(void) {
 				X2Count++;
 			}
 		}
+
 		//cout << "X2 checked" << Xchecked2 << endl;
 		//cout << "Y2 checked" << Ychecked2 << endl;
+
 		if (X2Count >= minConstraint) {
 			solve(Xchecked2, Ychecked2, Bchecked2, DECOMP_QR);
 
@@ -471,8 +515,9 @@ void getDirection(void) {
 			float xIntercept2 = -yIntercept2 / slope2;
 		//	cout << "xIntercept2 = " << xIntercept2 << endl;
 
-			if (yIntercept2 != 0) {
-
+			//if(yIntercept2 != 0)chiSquared2 = chiSquared(Xchecked2,Ychecked2, yIntercept2, slope2, X2Count,2);
+			//if ((yIntercept2 != 0)&&(chiSquared2 < CHISQUAREDTHRESH)) {
+			if(yIntercept2 != 0){
 				//Draw Line
 				Point Intercept0 = Point(xIntercept2, 0);
 				Point Intercept640 = Point((640 - yIntercept2) / slope2, 640);
@@ -500,30 +545,32 @@ void getDirection(void) {
 		}
 
 		//want to stream line this by putting points directly into Mat, but for now just going to get something that works
-
 		//cout << "X3 checked" << Xchecked3 << endl;
 		//cout << "Y3 checked" << Ychecked3 << endl;
 		if (X3Count >= minConstraint) {
 			solve(Xchecked3, Ychecked3, Bchecked3, DECOMP_QR);
-
 		//	cout << "B3 checked = " << endl << Bchecked3 << endl;
+
 			// Next we need to calculate how much we want to shift by: using the line equation obtained in matrix B we can calculate the
 			// y-intercept
 			slope3 = Bchecked3.at<float>(0, 0);
 			yIntercept3 = Bchecked3.at<float>(1, 0);
 		//	cout << "slope3 = " << slope3 << endl;
 		//	cout << "yIntercept3 = " << yIntercept3 << endl;
-
 			float xIntercept3 = -yIntercept3 / slope3;
 		//	cout << "xIntercept3 = " << xIntercept3 << endl;
-
-			if (yIntercept3 != 0) {
+		//	if(yIntercept3 != 0)chiSquared3 = chiSquared(Xchecked3,Ychecked3, yIntercept3, slope3, X3Count,3);
+		//	if ((yIntercept3 != 0)&&(chiSquared3 < CHISQUAREDTHRESH)) {
+			if(yIntercept3 != 0){
 				//Draw Line
 				Point Intercept0 = Point(xIntercept3, 0);
 				Point Intercept640 = Point((640 - yIntercept3) / slope3, 640);
 				line(image_direction, Intercept0, Intercept640,
 						CV_RGB(250, 100, 255), 1, CV_AA);
 			}
+
+		}
+
 			Xchecked0.release();
 			Ychecked0.release();
 			Bchecked0.release();
@@ -536,57 +583,74 @@ void getDirection(void) {
 			Xchecked3.release();
 		    Ychecked3.release();
 			Bchecked3.release();
-		}
 
 
+			cout << "Slope 0:"<< slope0<<endl;
+			cout << "Slope 1:"<< slope1<<endl;
+			cout << "Slope 2:"<< slope2<<endl;
+			cout << "Slope 3:"<< slope3<<endl;
 
 		// Crikey!
-		float minSlope = .1;
-		bool LoL = (slope0 < -minSlope)||(slope0 > minSlope ); // these values we chosen to reduce errors
-		bool RoL = (slope1 < -minSlope)||(slope1 > minSlope );
-		bool LoR = (slope2 < -minSlope)||(slope2 > minSlope );
-		bool RoR = (slope3 < -minSlope)||(slope3 > minSlope );
+		float minSlope = 0.01;
+		bool LoL = (slope0 > -minSlope)&&(slope0 < minSlope ); // these values we chosen to reduce errors
+		bool RoL = (slope1 > -minSlope)&&(slope1 < minSlope );
+		bool LoR = (slope2 > -minSlope)&&(slope2 < minSlope );
+		bool RoR = (slope3 > -minSlope)&&(slope3 < minSlope );
+		/*bool LoL = ((slope0!=0) && (chiSquared0 <CHISQUAREDTHRESH)); // these values we chosen to reduce errors
+		bool RoL = ((slope1!=0) && (chiSquared1 <CHISQUAREDTHRESH));
+		bool LoR = ((slope2!=0) && (chiSquared2 <CHISQUAREDTHRESH));
+		bool RoR = ((slope3!=0) && (chiSquared3 <CHISQUAREDTHRESH));*/
 		bool R; //  right line detected?
 		bool L; // left line detected?
 
 		if (LoL && RoL) L = 1;
 		if (LoR && RoR) R = 1;
 
-		// Perform HitTest if hit set priority to 1 & move away
-		int robotPosy = image_thresholded.cols + 300; //TODO: alter this parameter
+		// Perform HitTest if hit set  to 1 & move away
+		int robotPosy = image_thresholded.cols + 30; //TODO: alter this parameter
 		if(LoL||RoL||LoR||RoR) priority = 0;
 		if (LoL && ((robotPosy - yIntercept0)/ slope0) > 1/3*image_thresholded.cols){
 			priority = 1;
-			steering++;
+			throttle = lowThrottle;
+			steering = lowsteeringIncrement;
+			cout<<"GOING LEFT"<<endl;
 		}
 		else if (RoL && ((robotPosy - yIntercept1)/ slope1) > 1/3*image_thresholded.cols){
 			priority = 1;
-			steering++;
-
+			throttle = lowThrottle;
+			steering = lowsteeringIncrement;
+			cout<<"GOING LEFT"<<endl;
 		}
 		else if (LoR && ((robotPosy - yIntercept2)/slope2) < 2/3*image_thresholded.cols){
 			priority = 1;
-			steering--;
-
+			throttle = lowThrottle;
+			steering = -lowsteeringIncrement;
+			cout<<"GOING RIGHT"<<endl;
 		}
 		else if (RoR && ((robotPosy - yIntercept3)/slope3) < 2/3*image_thresholded.cols){
 			priority = 1;
-			steering--;
+			throttle = lowThrottle;
+			steering = -lowsteeringIncrement;
+			cout<<"GOING RIGHT"<<endl;
 		}
 		else if (!LoL&&!RoL&&!LoR&&!RoR)
 		{
-			cout<<"NO LINES DETECTED, WAITING"<<endl;
+			cout<<"NO LINES DETECTED, GOING STRAIGHT"<<endl;
 			noLinesWait++;
-			waitKey(1);
-			if (noLinesWait > 100)
-			{
-				priority = -1;
-				noLinesWait = 0;
-			}
+			throttle = lowThrottle;
+			//steering = steering *(-1); // added this in now
+
+			//waitKey(1); //Should this be here? Consult with others
+			//if (noLinesWait > 100) //TODO: is this enough?
+			//{
+			//	priority = -1;
+			//	noLinesWait = 0;
+			//}
 		}
 		if (priority == 1) {cout<<" ABOUT TO HIT LINE" << endl; return;}
 		if (priority == -1) {cout<<"NO LINES DETECTED FOR EXTENDED PEROID SWITCHING TO GPS" << endl; return;}
 		// Otherwise perform direction test and move
+
 		float leftSlope = 0;
 		float rightSlope = 0;
 
@@ -600,32 +664,31 @@ void getDirection(void) {
 
 		if (direction > 0)
 			{
-			steering++;
+
+			steering = steeringIncrement;
 			cout<< "GOING LEFT"<<endl;
 			}
 		if (direction < 0){
-			steering--;
+			steering = -steeringIncrement;
 			cout<<"GOING RIGHT"<<endl;
 		}
-
 		if (direction == 0 ) {
 			steering = 0;
 			cout<<"GOING STRAIGHT"<<endl;
-
 		}
+		if (steering > 1)
+			steering = 1;
+		if (steering < -1)
+			steering = -1;
 
-		if (steering > 100)
-			steering = 100;
-		if (steering < -100)
-			steering = -100;
-		steeringOut = steering / 1000.0;
-		if (steering < 0)cout << "HEADING RIGHT" << endl;
-		if (steering > 0)
-			cout << "HEADING LEFT" << endl;
-		if (steering == 0)cout << "HEADING STRAIGHT" << endl;
-
+		steeringOut = steering;
+		//if (steering < 0)cout << "HEADING RIGHT" << endl;
+		//if (steering > 0)cout << "HEADING LEFT" << endl;
+		//if (steering == 0)cout << "HEADING STRAIGHT" << endl;
 
 		cout << "Steering = " << steeringOut << endl;
+		cout << "Throttle = " << throttle <<endl;
+
 
 
 	}
@@ -678,7 +741,7 @@ void getDirection(void) {
 		int betweenRow = 10;
 		int x = 0;
 		int y = 0;
-		
+
 
 		int numLines = 0;
 		for (int i = 0; i <= 1; i++) {
@@ -718,7 +781,7 @@ void getDirection(void) {
 		namedWindow("Display Image", CV_WINDOW_NORMAL);
 		cvMoveWindow("Display Image", 400, 0);
 		imshow("Display Image", image);
-
+/*
 		//Display blur
 		namedWindow("Blur", CV_WINDOW_NORMAL);
 		cvMoveWindow("Blur", 720, 0);
@@ -763,12 +826,12 @@ void getDirection(void) {
 		namedWindow("Canny", CV_WINDOW_NORMAL);
 		cvMoveWindow("Canny", 0, 0);
 		imshow("Canny", image_canny);
-
+*/
 		//Display direction image
 		namedWindow("Direction", CV_WINDOW_NORMAL);
 		cvMoveWindow("Direction", 0, 0);
 		imshow("Direction", image_direction);
-
+/*
 //Display H image
 		namedWindow("Hue", CV_WINDOW_NORMAL);
 		cvMoveWindow("Hue", 720, 600);
@@ -806,7 +869,7 @@ void getDirection(void) {
 		cvMoveWindow("No G", 720, 600);
 	    imshow("No G", image_noG);
 
-
+*/
 
 	}
 
@@ -1037,7 +1100,8 @@ void getDirection(void) {
 		//void inRange(InputArray src, InputArray lowerb, InputArray upperb, OutputArray dst)
 		//cout<<image_H<<endl;
 
-		inRange(image_H, 200,255,image_thresholded);
+		inRange(image_H, lowerBound,upperBound,image_thresholded);
+
 
 		//Split image into RGB
 		vector<Mat> RGBchannels;
@@ -1197,3 +1261,23 @@ void getDirection(void) {
 	}
 
 
+float chiSquared(Mat Xchecked1,Mat Ychecked1, float yIntercept1,float slope1,int X1Count, int num)
+{
+	 float chisquared = 0;
+			 float deltax = 0;
+			 for (int a = 0; a<X1Count; a++)
+			 {
+				 deltax = deltax + pow( (Xchecked1.at<float>(a,0) - (Ychecked1.at<float>(a,0)-yIntercept1)/slope1),2);
+			 }
+			 float sigma = deltax/X1Count;
+			 chisquared = deltax/(X1Count * pow(sigma,2));
+			 cout << "CHI-SQUARED"<<num<<":" <<  1/chisquared <<endl;
+			 return 1/chisquared;
+}
+
+void simpleDir()
+{
+	// check across middle
+
+	// take average o
+}
