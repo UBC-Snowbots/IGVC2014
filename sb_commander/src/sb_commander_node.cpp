@@ -42,7 +42,7 @@ struct NavCommand
 };
 
 // ROS-related Constants
-static const string NODE_NAME               = "commander_node";
+static const string NODE_NAME               = "commander";
 static const string CAR_PUBLISH_TOPIC       = "vision_vel";
 static const string LIDAR_SUBSCRIBE_TOPIC   = "lidar_nav";  // lidar_nav node suggestion
 static const string VISION_SUBSCRIBE_TOPIC  = "vision_nav"; // vision_nav node suggestion
@@ -117,18 +117,12 @@ geometry_msgs::Twist driver()
 		
 		ROS_INFO("lidar: %0.2f, vision: %0.2f, gps: %0.2f", lidar_command.priority, vision_command.priority, gps_command.priority);
 		
-		//  Check and see if any of the sensors are giving out data
-		if (lidar_command.priority == -2 && vision_command.priority == -2 && gps_command.priority == -2)
-		{
-		  car_msg.linear.y  = 0;	//Throtle;
-		  car_msg.angular.z = 0;	//Steering;
-		  ROS_WARN("No Sensor Data. Waiting...");		
-		}
-		else if (lidar_command.priority != -2 && vision_command.priority == -2 && gps_command.priority == -2)
+		//TODO: igonre messages from idle nodes
+		if (lidar_command.priority != -2 && vision_command.priority == -2 && gps_command.priority == -2)
 		{
 		  car_msg.linear.y  = lidar_command.throttle;	//Throtle;
 		  car_msg.angular.z = lidar_command.steering;	//Steering;
-		  ROS_INFO("Running on lidar_nav  - throttle: %0.2f, steering: %0.2f", car_msg.linear.y, car_msg.angular.z);		
+		  ROS_INFO("Running on lidar_nav - throttle: %0.2f, steering: %0.2f", car_msg.linear.y, car_msg.angular.z);		
 		}
 		else if (lidar_command.priority == -2 && vision_command.priority != -2 && gps_command.priority == -2)
 		{
@@ -140,7 +134,8 @@ geometry_msgs::Twist driver()
 		{
 			car_msg.linear.y  = DEFAULT_SPEED;					//Throtle;
 			car_msg.angular.z = gps_command.steering;		//Steering;
-			ROS_INFO("Running on gps_nav    - throttle: %f, steering: %f", car_msg.linear.y, car_msg.angular.z);
+
+			ROS_INFO("Running on gps_nav - throttle: %f, steering: %f", car_msg.linear.y, car_msg.angular.z);
 		}
 		else {
 			// objects detected too close to the robot
