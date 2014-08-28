@@ -24,8 +24,8 @@ using namespace std;
 static const double PI		 = 3.1415265;
 static const double IGNORE_ANGLE = PI; //pi radians = 180 degrees
 static const int    OFFSET_RAYS = 30;        // offset from central ray
-static const double REDZONE      = 1.0;
-static const double ORANGEZONE   = 2.0;
+static const double REDZONE      = 0.5;
+static const double ORANGEZONE   = 1.0;
 static const double SLOW_SPEED	 = 0.1;
 static const double SPEED_LIMIT  = 0.3;
 

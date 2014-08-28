@@ -28,7 +28,7 @@ using namespace std;
 using namespace ros;
 
 //global constants
-static const string ROS_NODE_NAME = "arduino_driver";
+static const string ROS_NODE_NAME = "driver";
 static const int ROS_LOOP_RATE = 20; //hz
 
 static const int BAUD_RATE = 115200;

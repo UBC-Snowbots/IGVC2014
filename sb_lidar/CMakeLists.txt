@@ -109,6 +109,7 @@ include_directories(
 
 ## Declare a cpp executable
 add_executable(lidar_force_nav src/lidar_force_nav.cpp)
+add_executable(imagine_lidar src/imagineday_lidar.cpp)
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
@@ -118,7 +119,7 @@ add_executable(lidar_force_nav src/lidar_force_nav.cpp)
 target_link_libraries(lidar_force_nav
    ${catkin_LIBRARIES}
 )
-
+target_link_libraries(imagine_lidar ${catkin_LIBRARIES})
 #############
 ## Install ##
 #############

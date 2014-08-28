@@ -44,6 +44,7 @@ void filterImage(void);
 void getDirection(void);
 float calculateDirection1();
 float chiSquared(Mat,Mat, float, float, int, int);
+void simpleDir();
 
 
 //--END VISION------------------------

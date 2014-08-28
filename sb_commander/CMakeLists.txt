@@ -102,6 +102,7 @@ include_directories(
 
 ## Declare a cpp executable
 add_executable(sb_commander_node src/sb_commander_node.cpp)
+add_executable(imagine_commander src/sb_imagineday_commander.cpp)
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
@@ -111,6 +112,7 @@ add_executable(sb_commander_node src/sb_commander_node.cpp)
  target_link_libraries(sb_commander_node
    ${catkin_LIBRARIES}
  )
+target_link_libraries(imagine_commander ${catkin_LIBRARIES})
 
 #############
 ## Install ##
