@@ -196,8 +196,8 @@ void processData(string data,sb_msgs::RobotState &state)
 //car_command_callback
 void car_command_callback(const geometry_msgs::TwistConstPtr& msg_ptr)
 {
-	mech.twist_x = 125;//msg_ptr->linear.x * 125+125;
-	mech.twist_y = msg_ptr->linear.y * 125+125;
+	mech.twist_x = 125;
+	mech.twist_y = msg_ptr->linear.y * 125+125; 
 	mech.twist_z = -msg_ptr->angular.z * 125+125;
 
 	sprintf(twist_x,"%03d",mech.twist_x);
