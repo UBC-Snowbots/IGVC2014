@@ -122,7 +122,7 @@ void loop()
 
 
   //motors
-  hal.scheduler->delay(10);
+  hal.scheduler->delay(1);
   //debug_rcin();
   read_radio();
   //print_pwm();
