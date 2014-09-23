@@ -357,10 +357,13 @@ int main() {
 		int redPos = DetectMaxColorColumn(red);
 
 		//Store value for next iteration (except the zeros)
-		//"Only that which has value will go down in history"
-		if((redPos != 0) || (redHistory.size() == 0)){
+		if(redHistory.size() == 0){
+			redHistory.push_back(1);
+		}
+		if(redPos != 0){
 			redHistory.push_back(redPos);
 		}
+
 
 
 		//Use value of previous iteration(s) to make the line less jumpy
