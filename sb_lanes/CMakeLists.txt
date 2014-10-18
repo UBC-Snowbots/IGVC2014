@@ -9,6 +9,7 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
   genmsg
+  sb_msgs
 )
 find_package(OpenCV REQUIRED)
 add_message_files(FILES Num.msg)
@@ -70,7 +71,7 @@ add_message_files(FILES Num.msg)
 ## Generate added messages and services with any dependencies listed here
 generate_messages(
    DEPENDENCIES
-   std_msgs  # Or other packages containing msgs
+   std_msgs sb_msgs # Or other packages containing msgs
  )
 
 ###################################
