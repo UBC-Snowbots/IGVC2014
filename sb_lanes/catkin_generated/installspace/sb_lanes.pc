@@ -1,8 +1,0 @@
-prefix=/usr/local
-
-Name: sb_lanes
-Description: Description of sb_lanes
-Version: 0.0.0
-Cflags: -I/usr/local/include
-Libs: -L/usr/local/lib 
-Requires: 

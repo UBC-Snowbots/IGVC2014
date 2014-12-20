@@ -1,2 +1,0 @@
-set(sb_lanes_MESSAGE_FILES "/home/jannicke/snowbots_ws/src/IGVC2014/sb_lanes/msg/Num.msg")
-set(sb_lanes_SERVICE_FILES "")
